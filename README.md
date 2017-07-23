@@ -104,8 +104,11 @@ MacBook-Pro:coreos-vagrant jaswang$ vagrant status
 Current machine states:
 
 core-01                   running (virtualbox)
+
 core-02                   running (virtualbox)
+
 core-03                   running (virtualbox)
+
 core-04                   running (virtualbox)
 
 This environment represents multiple VMs. The VMs are all listed
@@ -113,6 +116,29 @@ above with their current state. For more information about a specific
 VM, run `vagrant status NAME`.
 ****************************************
 
+Step 7 Verify CoreOS VMs created by Vagrant
 
+In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
+
+************************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
+
+Last login: Sun Jul 23 12:19:31 UTC 2017 from 10.0.2.2 on pts/0
+Container Linux by CoreOS alpha (1478.0.0)
+
+core@core-01 ~ $ journalctl -f --lines=50
+(Verify there is no error as shown below)
+...
+Jul 23 13:19:36 core-01 systemd[1258]: Reached target Basic System.
+
+Jul 23 13:19:36 core-01 systemd[1258]: Reached target Default.
+
+Jul 23 13:19:36 core-01 systemd[1258]: Startup finished in 21ms.
+
+Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
+
+************************************
 
 
