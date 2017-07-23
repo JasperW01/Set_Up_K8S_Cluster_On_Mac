@@ -141,4 +141,94 @@ Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
 ************************************
 
+Step 8 Verify etcd Service status on CoreOS VMs
+
+Kubernetes uses etcd service, which is a distributed key-value database, to store all kinds of configurations and status information. When the 4 CoreOS VMs were created in Step 7, etcd service (etcd v3) has been set up as 1 VM running etcd server and 3 VMs as etcd client. 
+
+So in this step, we verify the etcd service is working well before setting up K8S components. 
+
+First we log onto core-01 VM first to verfiy the etcd server is running on core-01 VM
+
+****************************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
+
+core@core-01 ~ $ etcdctl member list
+(it should shown one etcd server is running on core-01 VM as shown below)
+
+f3c0b70e84d56c98: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
+
+core@core-01 ~ $ systemctl status etcd-member.service
+(Verify etcd-member service is running as etcdserver instead of etcd proxy, i.e. client)
+
+● etcd-member.service - etcd (System Application Container)
+   Loaded: loaded (/usr/lib/systemd/system/etcd-member.service; enabled; vendor preset: enabled)
+  Drop-In: /etc/systemd/system/etcd-member.service.d
+           └─20-clct-etcd-member.conf
+           
+   Active: active (running) since Sun 2017-07-23 03:53:37 UTC; 9h ago
+   
+ ...
+ 
+Jul 23 12:40:28 core-01 etcd-wrapper[773]: 2017-07-23 12:40:28.726727 I | etcdserver: compacted raft log at 25003
+*******************************************
+
+Then we log onto each of the rest 3 VMs to verify the etcd proxy is working by the steps below: 
+
+***********************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-02 -- -A
+
+core@core-02 ~ $ systemctl status etcd-member
+
+(Verify etcd-member service is running as etcd proxy/client instead of etcd server)
+
+● etcd-member.service - etcd (System Application Container)
+...
+   Active: active (running) since Sun 2017-07-23 03:53:56 UTC; 9h ago
+...
+Jul 23 03:53:56 core-02 etcd-wrapper[767]: 2017-07-23 03:53:56.464032 I | etcdmain: proxy: listening for client requests on http://0.0.0.0:2379
+
+core@core-02 ~ $ etcdctl ls / --recursive
+
+(Verify the etcd tree can be displayed as below)
+
+/flannel
+
+/flannel/network
+
+/flannel/network/config
+
+/flannel/network/subnets
+
+/flannel/network/subnets/10.1.55.0-24
+
+core@core-02 ~ $ etcdctl set /message Hello
+
+(Verify on K8S VM we can set etcd key and value pairs)
+
+Hello
+
+core@core-02 ~ $ etcdctl get /message
+
+(Verify on K8S VM we can get etcd key and value pairs)
+
+Hello
+
+core@core-02 ~ $ curl http://172.17.8.101:2379/v2/keys/message
+
+(Verify on K8S VM we can get etcd key and value pairs via etcd server URL)
+
+{"action":"get","node":{"key":"/message","value":"Hello","modifiedIndex":16,"createdIndex":16}}
+
+core@core-02 ~ $ etcdctl rm /message
+
+(Verify on K8S VM we can remove etcd key and value pairs)
+
+PrevNode.Value: Hello
+****************************************
+
+
 
