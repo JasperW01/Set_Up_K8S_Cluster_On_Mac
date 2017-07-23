@@ -26,7 +26,7 @@ Vagrant is a simple-to-use command line virtual machine manager. By working with
 
 Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
-Step 1. Clone the Vagrant + CoreOS repository from GitHub
+Step 1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
@@ -47,15 +47,72 @@ Please note in the latest CoreOS Container Linux image, it's using etcd V3 (i.e.
 ********************************************
 MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
 
-MacBook-Pro:coreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
+MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
+ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
 ********************************************
 
-Step 2. Update the human readiable cl.conf file and translate to CoreOS ignition file 
+Step 3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
 
-In the latest version of CoreOS, the traditional cloud-config has been superceded by ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and it's expecting a config.ign file instead of a cloud-config file (i.e. user-data). So as CoreOS common practice, we need to request a new etcd discovery token to update the cl.conf in the cloned repository and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
+In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreOS has been superceded by CoreOS Ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and in particular it's expecting a Ignition file of config.ign file instead of a cloud-config file of user-data. So as per CoreOS common practice, we need to update the cl.conf in the cloned repository with the etcd discovery token retrieved in Step 2 above and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
 
 **************************************************
-MacBook-Pro:k8s jaswang$ cd coreos-vagrant
-MacBook-Pro:coreos-vagrant jaswang$
+Download Mac binary of CoreOS config transpiler ct-<version>-x86_64-apple-darwin from https://github.com/coreos/container-linux-config-transpiler/releases. Copy it to /user/local/bin, change its name to "ct" and set it to be executable. 
+
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
+(Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2)
+
+MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
+******************************************
+
+Step 4. Set VM number and enable Docker Port Forwarding in config.rb file
+
+In this step, we set up the number of VMs to be created by Vagrant as 4 and also enable Docker Port Forwarding so that later we can use the local Docker command on Mac to connect to the Docker engine inside the VMs created by Vagrant.
+
+************************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
+
+MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
+(set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
+**********************************
+
+Step 5. Enable shared directory 
+
+In this step, we will enable shared directory so that the VMs to be created by Vagrant can have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
+
+************************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
+(Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
+*************************************
+
+Step 6. Start CoreOS VMs using Vagrant's default VirtualBox provider
+
+In this step, we will actually create and start CoreOS VMs using Vagrant's default VirtualBox provider. 
+
+************************************
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+
+MacBook-Pro:coreos-vagrant jaswang$ vagrant up
+(During the process, it will prompt for the Mac local admin passport when setting up shared directory in VMs. Just key in the password as requested)
+
+MacBook-Pro:coreos-vagrant jaswang$ vagrant status
+Current machine states:
+
+core-01                   running (virtualbox)
+core-02                   running (virtualbox)
+core-03                   running (virtualbox)
+core-04                   running (virtualbox)
+
+This environment represents multiple VMs. The VMs are all listed
+above with their current state. For more information about a specific
+VM, run `vagrant status NAME`.
+****************************************
+
+
 
 
