@@ -24,23 +24,21 @@ The steps in this section are mainly sourced from  https://coreos.com/os/docs/la
 
 Vagrant is a simple-to-use command line virtual machine manager. By working with VirtualBox (or VMWare which requires to purchase plug-in), it virtually turns your MacPro laptop into a datacentre.
 
-Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. 
+Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
 Step 1. Clone the Vagrant + CoreOS repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
-******************************************************
 MacBook-Pro:~ jaswang$ pwd
 /Users/jaswang
 MacBook-Pro:~ jaswang$ mkdir k8s
 MacBook-Pro:~ jaswang$ cd k8s/
 MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
-******************************************************
 
 Step 2. Update cl.conf file with a new etcd discovery token. 
 
-In the latest version of CoreOS, the traditional cloud-config has been superceded by ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox
+In the latest version of CoreOS, the traditional cloud-config has been superceded by ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and it's expecting a config.ign file instead of a cloud-config file (i.e. user-data). So we need
 MacBook-Pro:k8s jaswang$ cd coreos-vagrant
 MacBook-Pro:coreos-vagrant jaswang$
 
