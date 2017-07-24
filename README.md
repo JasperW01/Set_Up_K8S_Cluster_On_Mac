@@ -249,5 +249,15 @@ member f3c0b70e84d56c98 is healthy: got healthy result from http://172.17.8.101:
 cluster is healthy
 ****************************************
 
+Step B2 - Generate Kubernetes TLS Assets
+
+The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In our practice, however, we will use openssl tool to create our own certificates as below: 
+        
+        Root CA Public & Private keys - ca.pem & ca-key.pam
+        
+
+This means it is necessary to have a Certificate Authority and generate the proper credentials. Generate the necessary assets from existing PKI infrastructure, or by following these OpenSSL-based instructions to create the needed certificates and keys.
+
+In the following steps, it is assumed that you will have generated the following TLS assets:
 
 
