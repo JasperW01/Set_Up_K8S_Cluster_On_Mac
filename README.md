@@ -258,6 +258,15 @@ The Kubernetes API has various methods for validating clients. In this practice,
         Worker Node Public & Private Keys - ${WORKER_FQDN}-worker.pem & ${WORKER_FQDN}-worker-key.pem
         Cluster Admin Public & Private Keys - admin.pem & admin-key.pem
 
+First we create the cluster root CA keys on one of the CoreOS VMs by the steps below: 
+
+*****************************************
+    core@core-01 ~ $ cd share/
+    core@core-01 ~/share $ mkdir certificates
+    core@core-01 ~/share $ cd certificates/
+******************************************
+    
+
 
 
 
