@@ -40,12 +40,9 @@ In our setting up, we will have 4 VMs and 1 of them will be running etcd server 
 
 Please note in the latest CoreOS Container Linux image, it's using etcd V3 (i.e. etcd-member.service) instead of etcd v2 (i.e. etcd2.service). 
 
-********************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
-ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
-********************************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
+    ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
 
 Step A3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
 
