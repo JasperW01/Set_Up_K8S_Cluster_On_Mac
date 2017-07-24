@@ -264,6 +264,11 @@ First we create the cluster root CA keys on one of the CoreOS VMs by the steps b
     core@core-01 ~ $ cd share/
     core@core-01 ~/share $ mkdir certificates
     core@core-01 ~/share $ cd certificates/
+    core@core-01 ~/share $ openssl genrsa -out ca-key.pem 2048
+    Generating RSA private key, 2048 bit long modulus       
+    ...+++
+    e is 65537 (0x10001)
+      
 ******************************************
     
 
