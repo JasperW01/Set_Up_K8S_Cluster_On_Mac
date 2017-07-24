@@ -30,11 +30,9 @@ Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
-*********************************************
     MacBook-Pro:~ jaswang$ mkdir k8s
     MacBook-Pro:~ jaswang$ cd k8s/
     MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
-*********************************************
 
 Step A2. Request a new etcd discovery token
 
