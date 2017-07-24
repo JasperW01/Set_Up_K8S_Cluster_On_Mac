@@ -143,7 +143,7 @@ Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
 B. SET UP KUBERNETES CLUSTER ON MAC
 
-Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step. 
+Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step, in which core-02 is the master node and core-03 & core-04 are the worker nodes. 
 
 The steps in this section are mainly sourced from https://coreos.com/kubernetes/docs/latest/getting-started.html with practical adjustment. Before start, we list the actual values of the following variables which will be used throughout this section. 
 
@@ -251,13 +251,13 @@ cluster is healthy
 
 Step B2 - Generate Kubernetes TLS Assets
 
-The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In our practice, however, we will use openssl tool to create our own certificates as below: 
+The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In this practice, however, we will use openssl tool to create our own certificates as below: 
         
         Root CA Public & Private keys - ca.pem & ca-key.pam
-        
+        API Server Public & Private Keys - apiserver.pem & apiserver-key.pem
+        Worker Node Public & Private Keys - ${WORKER_FQDN}-worker.pem & ${WORKER_FQDN}-worker-key.pem
+        Cluster Admin Public & Private Keys - admin.pem & admin-key.pem
 
-This means it is necessary to have a Certificate Authority and generate the proper credentials. Generate the necessary assets from existing PKI infrastructure, or by following these OpenSSL-based instructions to create the needed certificates and keys.
 
-In the following steps, it is assumed that you will have generated the following TLS assets:
 
 
