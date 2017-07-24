@@ -26,7 +26,7 @@ Vagrant is a simple-to-use command line virtual machine manager. By working with
 
 Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
-Step 1. Clone the CoreOS-Vagrant repository from GitHub
+Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
@@ -38,7 +38,7 @@ MacBook-Pro:~ jaswang$ cd k8s/
 MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
 *********************************************
 
-Step 2. Request a new etcd discovery token
+Step A2. Request a new etcd discovery token
 
 In our setting up, we will have 4 VMs and 1 of them will be running etcd server and the other three will be etcd clients. So we use the URL of  https://discovery.etcd.io/new?size=1 (please note size is 1 here) to request a new etcd discovery token and the token will be applied to all 4 VMs to be created. As a result, 1 VM will be dedicated to etcd server and the other 3 VMs will be etcd clients and installed with Kubernetes components. As per k8s best practice, it's strongly recommanded to have VMs dedicated to etcd cluster separate to the VMs used in K8S cluster. In our case, the etcd cluster is composed of 1 VM only to save resources of the Mac. 
 
@@ -51,7 +51,7 @@ MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https:/
 ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
 ********************************************
 
-Step 3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
+Step A3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
 
 In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreOS has been superceded by CoreOS Ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and in particular it's expecting a Ignition file of config.ign file instead of a cloud-config file of user-data. So as per CoreOS common practice, we need to update the cl.conf in the cloned repository with the etcd discovery token retrieved in Step 2 above and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
 
@@ -66,7 +66,7 @@ MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
 MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 ******************************************
 
-Step 4. Set VM number and enable Docker Port Forwarding in config.rb file
+Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
 
 In this step, we set up the number of VMs to be created by Vagrant as 4 and also enable Docker Port Forwarding so that later we can use the local Docker command on Mac to connect to the Docker engine inside the VMs created by Vagrant.
 
@@ -79,7 +79,7 @@ MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
 (set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
 **********************************
 
-Step 5. Enable shared directory 
+Step A5. Enable shared directory 
 
 In this step, we will enable shared directory so that the VMs to be created by Vagrant can have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
 
@@ -90,7 +90,7 @@ MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
 (Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
 *************************************
 
-Step 6. Start CoreOS VMs using Vagrant's default VirtualBox provider
+Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
 
 In this step, we will actually create and start CoreOS VMs using Vagrant's default VirtualBox provider. 
 
@@ -116,7 +116,7 @@ above with their current state. For more information about a specific
 VM, run `vagrant status NAME`.
 ****************************************
 
-Step 7 Verify CoreOS VMs created by Vagrant
+Step A7 Verify CoreOS VMs created by Vagrant
 
 In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
 
@@ -141,9 +141,22 @@ Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
 ************************************
 
-Step 8 Verify etcd Service status on CoreOS VMs
+B. SET UP KUBERNETES CLUSTER ON MAC
 
-Kubernetes uses etcd service, which is a distributed key-value database, to store all kinds of configurations and status information. When the 4 CoreOS VMs were created in Step 7, etcd service (etcd v3) has been set up as 1 VM running etcd server and 3 VMs as etcd client. 
+Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step. 
+
+The steps in this section are mainly sourced from https://coreos.com/kubernetes/docs/latest/getting-started.html with practical adjustment. Before start, we list the actual values of the following variables which will be used throughout this section. 
+
+      MASTER_HOST=172.17.8.102 - IP address of the K8S master node core-02 which can be accessed by worker nodes and kubectl clien on Mac.
+      ETCD_ENDPOINTS=http://172.17.8.101:2379 - List of etcd machines, comma separated. As only core-01 runs etcd so only 1 URL
+      POD_NETWORK=10.2.0.0/16 - The CIDR network to use for pod IPs. the flannel overlay network will provide routing to this network.
+      SERVICE_IP_RANGE=10.3.0.0/24 - The CIDR network to use for service cluster VIPs, routing is handled by local kube-proxy
+      K8S_SERVICE_IP=10.3.0.1 - The VIP (Virtual IP) address of the Kubernetes API Service.
+      DNS_SERVICE_IP=10.3.0.10 - The VIP (Virtual IP) address of the cluster DNS service. 
+
+Step B1 Verify etcd Service status on CoreOS VMs
+
+Kubernetes uses etcd service, which is a distributed key-value database, to store all kinds of configurations and status information. When the 4 CoreOS VMs were created in Step A7, etcd service (etcd v3) has been set up as 1 VM running etcd server and 3 VMs as etcd proxy/client. 
 
 So in this step, we verify the etcd service is working well before setting up K8S components. 
 
@@ -228,6 +241,12 @@ core@core-02 ~ $ etcdctl rm /message
 (Verify on K8S VM we can remove etcd key and value pairs)
 
 PrevNode.Value: Hello
+
+core@core-04 /etc/systemd/system/etcd-member.service.d $ etcdctl cluster-health
+
+member f3c0b70e84d56c98 is healthy: got healthy result from http://172.17.8.101:2379
+
+cluster is healthy
 ****************************************
 
 
