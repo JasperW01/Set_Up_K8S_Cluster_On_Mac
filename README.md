@@ -7,15 +7,16 @@ set up a full Kubernetes cluster step by step.
 
 At the high level, there are three steps during the process: 
 
-    Section A. Use Vagrant to create four CoreOS VMs on a MacPro laptop. 
+Section A. Use Vagrant to create four CoreOS VMs on a MacPro laptop. 
 
-    Section B. On those 4 CoreOS VMs, set up a Kubernetes cluster step by step with 
-          i. one etcd server
-          ii. one k8s master node
-          iii. Two k8s worker nodes (more can be added afterwards)
-     We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit more in the long run. 
+Section B. On those 4 CoreOS VMs, set up a Kubernetes cluster step by step with 
+  i. one etcd server
+  ii. one k8s master node
+  iii. Two k8s worker nodes (more can be added afterwards)
+  
+  We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit more in the long run. 
    
-     Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
+Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
 A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 
