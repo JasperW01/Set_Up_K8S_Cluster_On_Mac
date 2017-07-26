@@ -200,23 +200,58 @@ First we create the cluster root CA keys on one of the CoreOS VMs by the steps b
     core@core-02 ~/share/certificates $ openssl req -x509 -new -nodes -key ca-key.pem -days 10000 -out ca.pem -subj "/CN=kube-ca"
 
 Then we create Kubernetes API Server Keypair
-    core@core-01 ~ $ cd share/
-    
+    core@core-02 ~/share/certificates $ vi openssl.cnf
     [req]
     req_extensions = v3_req
     distinguished_name = req_distinguished_name
-[req_distinguished_name]
-[ v3_req ]
-basicConstraints = CA:FALSE
-keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-subjectAltName = @alt_names
-[alt_names]
-DNS.1 = kubernetes
-DNS.2 = kubernetes.default
-DNS.3 = kubernetes.default.svc
-DNS.4 = kubernetes.default.svc.cluster.local
-IP.1 = 10.3.0.1
-IP.2 = 172.17.8.102
+    [req_distinguished_name]
+    [ v3_req ]
+    basicConstraints = CA:FALSE
+    keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+    subjectAltName = @alt_names
+    [alt_names]
+    DNS.1 = kubernetes
+    DNS.2 = kubernetes.default
+    DNS.3 = kubernetes.default.svc
+    DNS.4 = kubernetes.default.svc.cluster.local
+    IP.1 = 10.3.0.1
+    IP.2 = 172.17.8.102
+    core@core-02 ~/share/certificates $ openssl genrsa -out apiserver-key.pem 2048
+    Generating RSA private key, 2048 bit long modulus
+    .......................................................................................................+++
+    .+++
+    e is 65537 (0x10001)
+    core@core-02 ~/share/certificates $ openssl req -new -key apiserver-key.pem -out apiserver.csr -subj "/CN=kube-apiserver" -config openssl.cnf
+    core@core-02 ~/share/certificates $ openssl x509 -req -in apiserver.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out apiserver.pem -days 365 -extensions v3_req -extfile openssl.cnf
+    Signature ok
+    subject=/CN=kube-apiserver
+    Getting CA Private Key
+    
+Then we generates a unique TLS certificate for every Kubernetes worker node, i.e core-03 & core-04. 
+    core@core-02 ~/share/certificates $ vi worker-openssl.cnf
+    [req]
+    req_extensions = v3_req
+    distinguished_name = req_distinguished_name
+    [req_distinguished_name]
+    [ v3_req ]
+    basicConstraints = CA:FALSE
+    keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+    subjectAltName = @alt_names
+    [alt_names]
+    IP.1 = $ENV::WORKER_IP
+    core@core-02 ~/share/certificates $ openssl genrsa -out core-03-worker-key.pem 2048
+    Generating RSA private key, 2048 bit long modulus
+    ......................................................................+++
+    .....................................+++
+    e is 65537 (0x10001)
+    core@core-02 ~/share/certificates $ WORKER_IP=172.17.8.103 openssl req -new -key core-03-worker-key.pem -out core-03-worker.csr -subj "/CN=core-03" -config worker-openssl.cnf
+    core@core-02 ~/share/certificates $ WORKER_IP=172.17.8.103 openssl x509 -req -in core-03-worker.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out core-03-worker.pem -days 365 -extensions v3_req -extfile worker-openssl.cnf
+    Signature ok
+    subject=/CN=core-03
+    Getting CA Private Key
+    
+
+
 
   
 
