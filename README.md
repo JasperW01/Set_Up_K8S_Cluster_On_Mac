@@ -48,91 +48,63 @@ Step A3. Update the human readiable cl.conf file and translate to CoreOS ignitio
 
 In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreOS has been superceded by CoreOS Ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and in particular it's expecting a Ignition file of config.ign file instead of a cloud-config file of user-data. So as per CoreOS common practice, we need to update the cl.conf in the cloned repository with the etcd discovery token retrieved in Step 2 above and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
 
-**************************************************
-Download Mac binary of CoreOS config transpiler ct-<version>-x86_64-apple-darwin from https://github.com/coreos/container-linux-config-transpiler/releases. Copy it to /user/local/bin, change its name to "ct" and set it to be executable. 
+    Download Mac binary of CoreOS config transpiler ct-<version>-x86_64-apple-darwin from https://github.com/coreos/container-linux-config-transpiler/releases. Copy it to /user/local/bin, change its name to "ct" and set it to be executable. 
 
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
-(Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2)
-
-MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
-******************************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
+    (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2)
+    MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 
 Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
 
 In this step, we set up the number of VMs to be created by Vagrant as 4 and also enable Docker Port Forwarding so that later we can use the local Docker command on Mac to connect to the Docker engine inside the VMs created by Vagrant.
 
-************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
-
-MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
-(set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
-**********************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
+    MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
+    (set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
 
 Step A5. Enable shared directory 
 
 In this step, we will enable shared directory so that the VMs to be created by Vagrant can have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
 
-************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
-(Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
-*************************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
+    (Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
 
 Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
 
 In this step, we will actually create and start CoreOS VMs using Vagrant's default VirtualBox provider. 
 
-************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant up
+    (During the process, it will prompt for the Mac local admin passport when setting up shared directory in VMs. Just key in the password as requested)
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant status
+    Current machine states:
+    core-01                   running (virtualbox)
+    core-02                   running (virtualbox)
+    core-03                   running (virtualbox)
+    core-04                   running (virtualbox)
 
-MacBook-Pro:coreos-vagrant jaswang$ vagrant up
-(During the process, it will prompt for the Mac local admin passport when setting up shared directory in VMs. Just key in the password as requested)
-
-MacBook-Pro:coreos-vagrant jaswang$ vagrant status
-Current machine states:
-
-core-01                   running (virtualbox)
-
-core-02                   running (virtualbox)
-
-core-03                   running (virtualbox)
-
-core-04                   running (virtualbox)
-
-This environment represents multiple VMs. The VMs are all listed
-above with their current state. For more information about a specific
-VM, run `vagrant status NAME`.
-****************************************
+    This environment represents multiple VMs. The VMs are all listed
+    above with their current state. For more information about a specific
+    VM, run `vagrant status NAME`.
 
 Step A7 Verify CoreOS VMs created by Vagrant
 
 In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
 
-************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
-
-Last login: Sun Jul 23 12:19:31 UTC 2017 from 10.0.2.2 on pts/0
-Container Linux by CoreOS alpha (1478.0.0)
-
-core@core-01 ~ $ journalctl -f --lines=50
-(Verify there is no error as shown below)
-...
-Jul 23 13:19:36 core-01 systemd[1258]: Reached target Basic System.
-
-Jul 23 13:19:36 core-01 systemd[1258]: Reached target Default.
-
-Jul 23 13:19:36 core-01 systemd[1258]: Startup finished in 21ms.
-
-Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
-
-************************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
+    Last login: Sun Jul 23 12:19:31 UTC 2017 from 10.0.2.2 on pts/0
+    Container Linux by CoreOS alpha (1478.0.0)
+    core@core-01 ~ $ journalctl -f --lines=50
+    (Verify there is no error as shown below)
+    ...
+    Jul 23 13:19:36 core-01 systemd[1258]: Reached target Basic System.
+    Jul 23 13:19:36 core-01 systemd[1258]: Reached target Default.
+    Jul 23 13:19:36 core-01 systemd[1258]: Startup finished in 21ms.
+    Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
 B. SET UP KUBERNETES CLUSTER ON MAC
 
@@ -155,92 +127,57 @@ So in this step, we verify the etcd service is working well before setting up K8
 
 First we log onto core-01 VM first to verfiy the etcd server is running on core-01 VM
 
-****************************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
-
-core@core-01 ~ $ etcdctl member list
-(it should shown one etcd server is running on core-01 VM as shown below)
-
-f3c0b70e84d56c98: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
-
-core@core-01 ~ $ systemctl status etcd-member.service
-(Verify etcd-member service is running as etcdserver instead of etcd proxy, i.e. client)
-
-● etcd-member.service - etcd (System Application Container)
-   Loaded: loaded (/usr/lib/systemd/system/etcd-member.service; enabled; vendor preset: enabled)
-  Drop-In: /etc/systemd/system/etcd-member.service.d
-           └─20-clct-etcd-member.conf
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01 -- -A
+    core@core-01 ~ $ etcdctl member list
+    (it should shown one etcd server is running on core-01 VM as shown below)
+    f3c0b70e84d56c98: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
+    core@core-01 ~ $ systemctl status etcd-member.service
+    (Verify etcd-member service is running as etcdserver instead of etcd proxy, i.e. client)
+    
+    ● etcd-member.service - etcd (System Application Container)
+    Loaded: loaded (/usr/lib/systemd/system/etcd-member.service; enabled; vendor preset: enabled)
+    Drop-In: /etc/systemd/system/etcd-member.service.d
+               └─20-clct-etcd-member.conf
            
-   Active: active (running) since Sun 2017-07-23 03:53:37 UTC; 9h ago
-   
- ...
- 
-Jul 23 12:40:28 core-01 etcd-wrapper[773]: 2017-07-23 12:40:28.726727 I | etcdserver: compacted raft log at 25003
-*******************************************
+    Active: active (running) since Sun 2017-07-23 03:53:37 UTC; 9h ago  
+    ...
+    Jul 23 12:40:28 core-01 etcd-wrapper[773]: 2017-07-23 12:40:28.726727 I | etcdserver: compacted raft log at 25003
 
 Then we log onto each of the rest 3 VMs to verify the etcd proxy is working by the steps below: 
 
-***********************************
-MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-
-MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-02 -- -A
-
-core@core-02 ~ $ systemctl status etcd-member
-
-(Verify etcd-member service is running as etcd proxy/client instead of etcd server)
-
-● etcd-member.service - etcd (System Application Container)
-...
-   Active: active (running) since Sun 2017-07-23 03:53:56 UTC; 9h ago
-...
-Jul 23 03:53:56 core-02 etcd-wrapper[767]: 2017-07-23 03:53:56.464032 I | etcdmain: proxy: listening for client requests on http://0.0.0.0:2379
-
-core@core-02 ~ $ etcdctl ls / --recursive
-
-(Verify the etcd tree can be displayed as below)
-
-/flannel
-
-/flannel/network
-
-/flannel/network/config
-
-/flannel/network/subnets
-
-/flannel/network/subnets/10.1.55.0-24
-
-core@core-02 ~ $ etcdctl set /message Hello
-
-(Verify on K8S VM we can set etcd key and value pairs)
-
-Hello
-
-core@core-02 ~ $ etcdctl get /message
-
-(Verify on K8S VM we can get etcd key and value pairs)
-
-Hello
-
-core@core-02 ~ $ curl http://172.17.8.101:2379/v2/keys/message
-
-(Verify on K8S VM we can get etcd key and value pairs via etcd server URL)
-
-{"action":"get","node":{"key":"/message","value":"Hello","modifiedIndex":16,"createdIndex":16}}
-
-core@core-02 ~ $ etcdctl rm /message
-
-(Verify on K8S VM we can remove etcd key and value pairs)
-
-PrevNode.Value: Hello
-
-core@core-04 /etc/systemd/system/etcd-member.service.d $ etcdctl cluster-health
-
-member f3c0b70e84d56c98 is healthy: got healthy result from http://172.17.8.101:2379
-
-cluster is healthy
-****************************************
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-02 -- -A
+    core@core-02 ~ $ systemctl status etcd-member
+    (Verify etcd-member service is running as etcd proxy/client instead of etcd server)
+    
+    ● etcd-member.service - etcd (System Application Container)
+    ...
+    Active: active (running) since Sun 2017-07-23 03:53:56 UTC; 9h ago
+    ...
+    Jul 23 03:53:56 core-02 etcd-wrapper[767]: 2017-07-23 03:53:56.464032 I | etcdmain: proxy: listening for client requests on     http://0.0.0.0:2379
+    core@core-02 ~ $ etcdctl ls / --recursive
+    (Verify the etcd tree can be displayed as below)
+    /flannel
+    /flannel/network
+    /flannel/network/config
+    /flannel/network/subnets
+    /flannel/network/subnets/10.1.55.0-24
+    core@core-02 ~ $ etcdctl set /message Hello
+    (Verify on K8S VM we can set etcd key and value pairs)
+    Hello
+    core@core-02 ~ $ etcdctl get /message
+    (Verify on K8S VM we can get etcd key and value pairs)
+    Hello
+    core@core-02 ~ $ curl http://172.17.8.101:2379/v2/keys/message
+    (Verify on K8S VM we can get etcd key and value pairs via etcd server URL)
+    {"action":"get","node":{"key":"/message","value":"Hello","modifiedIndex":16,"createdIndex":16}}
+    core@core-02 ~ $ etcdctl rm /message
+    (Verify on K8S VM we can remove etcd key and value pairs)
+    PrevNode.Value: Hello
+    core@core-04 /etc/systemd/system/etcd-member.service.d $ etcdctl cluster-health
+    member f3c0b70e84d56c98 is healthy: got healthy result from http://172.17.8.101:2379
+    cluster is healthy
 
 Step B2 - Generate Kubernetes TLS Assets
 
@@ -253,16 +190,14 @@ The Kubernetes API has various methods for validating clients. In this practice,
 
 First we create the cluster root CA keys on one of the CoreOS VMs by the steps below: 
 
-*****************************************
     core@core-01 ~ $ cd share/
     core@core-01 ~/share $ mkdir certificates
     core@core-01 ~/share $ cd certificates/
     core@core-01 ~/share $ openssl genrsa -out ca-key.pem 2048
     Generating RSA private key, 2048 bit long modulus       
     ...+++
-    e is 65537 (0x10001)
-      
-******************************************
+    e is 65537 (0x10001)      
+
     
 
 
