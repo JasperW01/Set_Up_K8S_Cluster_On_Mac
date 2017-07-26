@@ -200,6 +200,8 @@ First we create the cluster root CA keys on one of the CoreOS VMs by the steps b
     core@core-02 ~/share/certificates $ openssl req -x509 -new -nodes -key ca-key.pem -days 10000 -out ca.pem -subj "/CN=kube-ca"
 
 Then we create Kubernetes API Server Keypair
+    core@core-01 ~ $ cd share/
+    
     [req]
     req_extensions = v3_req
     distinguished_name = req_distinguished_name
