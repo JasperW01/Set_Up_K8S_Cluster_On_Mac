@@ -13,8 +13,7 @@ At the high level, there are three steps during the process:
           i. one etcd server
           ii. one k8s master node
           iii. Two k8s worker nodes (more can be added afterwards)
-     We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit
-   more in the long run. 
+     We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit more in the long run. 
    
      Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
