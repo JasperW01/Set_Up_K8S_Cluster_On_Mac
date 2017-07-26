@@ -202,7 +202,7 @@ First we create the cluster root CA keys on one of the CoreOS VMs by the steps b
 Then we create Kubernetes API Server Keypair
     [req]
     req_extensions = v3_req
-distinguished_name = req_distinguished_name
+    distinguished_name = req_distinguished_name
 [req_distinguished_name]
 [ v3_req ]
 basicConstraints = CA:FALSE
