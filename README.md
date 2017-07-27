@@ -251,6 +251,10 @@ Then we generates a unique TLS certificate for every Kubernetes worker node, i.e
     Signature ok
     subject=/CN=core-03
     Getting CA Private Key
+    
+    Repeat the above steps for core-04
+
+Step 
 
 
     
