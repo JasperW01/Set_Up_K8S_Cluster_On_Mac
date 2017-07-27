@@ -254,7 +254,20 @@ Then we generates a unique TLS certificate for every Kubernetes worker node, i.e
     
     Repeat the above steps for core-04
 
-Step 
+Step B3 - Deploy K8S Master Node Components
+
+In this step, we deploy K8S master node on core-02. 
+
+First we prepare TSL certificates/assets on core-02
+
+    core@core-02 ~ $ sudo mkdir -p /etc/kubernetes/ssl
+    core@core-02 ~ $ cd /etc/kubernetes/ssl
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/ca.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver-key.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
+
+
 
 
     
