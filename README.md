@@ -296,6 +296,7 @@ Next create the systemd drop-in for changing flanneld service setting.
     udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
 
 In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
+
     a. use systend drop-in to configure flanneld running prior to Docker starting
     b. create Docker CNI (Containter Network Interface) options file
     c. set up flannel CNI configuration file (Please note, we choose to use Flannel instead of Calico for container networking)
@@ -356,7 +357,149 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.481352682Z" level=info msg="API listen on /var/run/docker.sock"
     Warning: docker.service changed on disk. Run 'systemctl daemon-reload' to reload units.
 
+Now we create kubelet unit on K8S master. The kubelet is the agent on each machine that starts and stops Pods and other machine-level tasks. The kubelet communicates with the API server (also running on the master nodes) with the TLS certificates we placed on disk earlier.
 
+On the master node, the kubelet is configured to communicate with the API server, but not register for cluster work, as shown in the --register-schedulable=false line in the YAML excerpt below. This prevents user pods being scheduled on the master nodes, and ensures cluster work is routed only to task-specific worker nodes.Note that the kubelet running on a master node may log repeated attempts to post its status to the API server. These warnings are expected behavior and can be ignored. 
+
+The following kubelet service unit file uses the following environment variables: 
+
+    ${ADVERTISE_IP} = 172.17.8.102
+    ${DNS_SERVICE_IP} = 10.3.0.10
+    ${K8S_VER} =  v1.7.2_coreos.0
+    
+    core@core-02 ~ $ cd /etc/systemd/system
+    core@core-02 /etc/systemd/system $ sudo vi kubelet.service
+    (Add the following lines)
+    [Service]
+    Environment=KUBELET_IMAGE_TAG=v1.7.2_coreos.0
+    Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
+      --volume var-log,kind=host,source=/var/log \
+      --mount volume=var-log,target=/var/log \
+      --volume dns,kind=host,source=/etc/resolv.conf \
+      --mount volume=dns,target=/etc/resolv.conf"
+    ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
+    ExecStartPre=/usr/bin/mkdir -p /var/log/containers
+    ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
+    ExecStart=/usr/lib/coreos/kubelet-wrapper \
+      --api-servers=http://127.0.0.1:8080 \
+      --register-schedulable=false \
+      --cni-conf-dir=/etc/kubernetes/cni/net.d \
+      --network-plugin=${NETWORK_PLUGIN} \
+      --container-runtime=docker \
+      --allow-privileged=true \
+      --pod-manifest-path=/etc/kubernetes/manifests \
+      --hostname-override=172.17.8.102 \
+      --cluster_dns=10.3.0.10 \
+      --cluster_domain=cluster.local
+    ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
+    Restart=always
+    RestartSec=10
+
+    [Install]
+    WantedBy=multi-user.target
+
+Now we set up the kube-apiserver Pod. The API server is where most of the magic happens. It is stateless by design and takes in API requests, processes them and stores the result in etcd if needed, and then returns the result of the request.
+
+We're going to use a unique feature of the kubelet to launch a Pod that runs the API server. Above we configured the kubelet to watch a local directory for pods to run with the --pod-manifest-path=/etc/kubernetes/manifests flag. All we need to do is place our Pod manifest in that location, and the kubelet will make sure it stays running, just as if the Pod was submitted via the API. The cool trick here is that we don't have an API running yet, but the Pod will function the exact same way, which simplifies troubleshooting later on.
+
+The following YAML file for api-service POD uses the following environment variables;
+
+    ${ETCD_ENDPOINTS} = http://172.17.8.101:2379 
+    ${SERVICE_IP_RANGE} = 10.3.0.0/24
+    ${ADVERTISE_IP} = 172.17.8.102
+    ${K8S_VER} =  v1.7.2_coreos.0
+    
+    core@core-02 ~ $ sudo mkdir /etc/kubernetes/manifests
+    core@core-02 ~ $ cd /etc/kubernetes/manifests
+    core@core-02 /etc/kubernetes/manifests $ sudo vi kube-apiserver.yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-apiserver
+      namespace: kube-system
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-apiserver
+        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        command:
+        - /hyperkube
+        - apiserver
+        - --bind-address=0.0.0.0
+        - --etcd-servers=http://172.17.8.101:2379
+        - --allow-privileged=true
+        - --service-cluster-ip-range=10.3.0.0/24
+        - --secure-port=443
+        - --advertise-address=172.17.8.102
+        - --admission-control=NamespaceLifecycle,LimitRanger,ServiceAccount,DefaultStorageClass,ResourceQuota
+        - --tls-cert-file=/etc/kubernetes/ssl/apiserver.pem
+        - --tls-private-key-file=/etc/kubernetes/ssl/apiserver-key.pem
+        - --client-ca-file=/etc/kubernetes/ssl/ca.pem
+        - --service-account-key-file=/etc/kubernetes/ssl/apiserver-key.pem
+        - --runtime-config=extensions/v1beta1/networkpolicies=true
+        - --anonymous-auth=false
+        livenessProbe:
+          httpGet:
+            host: 127.0.0.1
+            port: 8080
+            path: /healthz
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
+        ports:
+        - containerPort: 443
+          hostPort: 443
+          name: https
+        - containerPort: 8080
+          hostPort: 8080
+          name: local
+        volumeMounts:
+        - mountPath: /etc/kubernetes/ssl
+          name: ssl-certs-kubernetes
+          readOnly: true
+        - mountPath: /etc/ssl/certs
+          name: ssl-certs-host
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /etc/kubernetes/ssl
+        name: ssl-certs-kubernetes
+      - hostPath:
+          path: /usr/share/ca-certificates
+        name: ssl-certs-host
+
+Similarly now we set up kube-proxy Pod. The proxy is responsible for directing traffic destined for specific services and pods to the correct location. The proxy communicates with the API server periodically to keep up to date. Both the master and worker nodes in K8S cluster will run the proxy. 
+
+The following YAML file for kub-proxy POD uses the following environment variable;
+
+    ${K8S_VER} =  v1.7.2_coreos.0
+    
+    core@core-02 ~ $ cd /etc/kubernetes/manifests
+    core@core-02 /etc/kubernetes/manifests $ sudo vi kube-proxy.yaml
+    core@core-02 /etc/kubernetes/manifests $ cat kube-proxy.yaml 
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-proxy
+        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        command:
+        - /hyperkube
+        - proxy
+        - --master=http://127.0.0.1:8080
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: ssl-certs-host
+          readOnly: true
+      volumes:
+      - hostPath:
+          path: /usr/share/ca-certificates
+        name: ssl-certs-host
 
 
 
