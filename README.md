@@ -267,6 +267,65 @@ First we prepare TSL certificates/assets on core-02
     core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver-key.pem .
     core@core-02 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
 
+Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
+
+    core@core-02 ~ $ sudo mkdir /etc/flannel
+    core@core-02 ~ $ sudo vi /etc/flannel/options.env
+    (Add the following two lines)
+    FLANNELD_IFACE=172.17.8.102
+    FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
+
+Next create the systemd drop-in for changing flanneld service setting. 
+
+    core@core-03 ~ $ sudo netstat -nap|grep flanneld
+    tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
+    core@core-02 /etc/kubernetes/ssl $ cd /etc/systemd/system/flanneld.service.d/
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo vi 40-ExecStartPre-symlink.conf
+    (Add the following two lines)
+    [Service]
+    ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl daemon-reload
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart flanneld
+    core@core-02 ~ $ sudo netstat -nap|grep flanneld
+    (After the change, flanneld now is connecting to etcd server on core-01)
+    tcp        0      0 172.17.8.102:49880      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49876      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
+    udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
+
+In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
+    a. use systend drop-in to configure flanneld running prior to Docker starting
+    b. create Docker CNI (Containter Network Interface) options file
+    c. set up flannel CNI configuration file (Please note, we choose to use Flannel instead of Calico for container networking)
+
+    core@core-02 ~ $ sudo mkdir -p /etc/systemd/system/docker.service.d
+    core@core-02 ~ $ cd /etc/systemd/system/docker.service.d
+    core@core-02 /etc/systemd/system/docker.service.d $ sudo vi 40-flannel.conf
+    (Add the following lines)
+        [Unit]
+        Requires=flanneld.service
+        After=flanneld.service
+        [Service]
+        EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
+    core@core-02 ~ $ sudo mkdir /etc/kubernetes/cni
+    core@core-02 ~ $ cd /etc/kubernetes/cni/
+    core@core-02 /etc/kubernetes/cni $ sudo vi docker_opts_cni.env
+    (Add the following lines)
+        DOCKER_OPT_BIP=""
+        DOCKER_OPT_IPMASQ=""
+    
+
+    
+
+
+
+
+
+
+ 
+
 
 
 
