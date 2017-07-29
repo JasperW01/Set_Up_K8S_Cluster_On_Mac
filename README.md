@@ -300,6 +300,12 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     b. create Docker CNI (Containter Network Interface) options file
     c. set up flannel CNI configuration file (Please note, we choose to use Flannel instead of Calico for container networking)
 
+    core@core-03 ~ $ systemctl status docker
+    (Before change, docker service is not active)
+    ● docker.service - Docker Application Container Engine
+       Loaded: loaded (/run/torcx/unpack/docker/lib/systemd/system/docker.service; linked; vendor preset: disabled)
+       Active: inactive (dead)
+         Docs: http://docs.docker.com
     core@core-02 ~ $ sudo mkdir -p /etc/systemd/system/docker.service.d
     core@core-02 ~ $ cd /etc/systemd/system/docker.service.d
     core@core-02 /etc/systemd/system/docker.service.d $ sudo vi 40-flannel.conf
@@ -315,7 +321,44 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     (Add the following lines)
         DOCKER_OPT_BIP=""
         DOCKER_OPT_IPMASQ=""
+    core@core-02 /etc/kubernetes/cni $ sudo mkdir net.d
+    core@core-02 /etc/kubernetes/cni $ cd net.d/
+    core@core-02 /etc/kubernetes/cni/net.d $ sudo vi 10-flannel.conf
+    (Add the following lines)
+        {
+            "name": "podnet",
+            "type": "flannel",
+            "delegate": {
+                "isDefaultGateway": true
+            }
+        }
+    core@core-02 ~ $ systemctl status docker
+    ● docker.service - Docker Application Container Engine
+       Loaded: loaded (/run/torcx/unpack/docker/lib/systemd/system/docker.service; linked; vendor preset: disabled)
+       Active: active (running) since Sat 2017-07-29 02:11:50 UTC; 30min ago
+         Docs: http://docs.docker.com
+     Main PID: 2480 (dockerd)
+        Tasks: 8
+       Memory: 14.2M
+          CPU: 1.463s
+       CGroup: /system.slice/docker.service
+               └─2480 /run/torcx/bin/dockerd --host=fd:// --containerd=/var/run/docker/libcontainerd/docker-containerd.sock --selinux-    enabled=true --bip=10.1.4.1/24 --mtu=1472 --ip-masq=false
     
+    Jul 29 02:11:50 core-02 systemd[1]: Starting Docker Application Container Engine...
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.079921481Z" level=error msg="Failed to built-in GetDriver graph aufs  /var/lib/docker"
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.173229979Z" level=info msg="Graph migration to content-addressability     took 0.00 seconds"
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.173660858Z" level=info msg="Loading containers: start."
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.447055401Z" level=info msg="Loading containers: done."
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.468144470Z" level=info msg="Daemon has completed initialization"
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.469396879Z" level=info msg="Docker daemon" commit=89658be    graphdriver=overlay2 version=17.05.0-ce
+    Jul 29 02:11:50 core-02 systemd[1]: Started Docker Application Container Engine.
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.481145428Z" level=info msg="API listen on [::]:2375"
+    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.481352682Z" level=info msg="API listen on /var/run/docker.sock"
+    Warning: docker.service changed on disk. Run 'systemctl daemon-reload' to reload units.
+
+
+
+
 
     
 
