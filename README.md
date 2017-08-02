@@ -119,7 +119,7 @@ The steps in this section are mainly sourced from https://coreos.com/kubernetes/
       K8S_SERVICE_IP=10.3.0.1 - The VIP (Virtual IP) address of the Kubernetes API Service.
       DNS_SERVICE_IP=10.3.0.10 - The VIP (Virtual IP) address of the cluster DNS service. 
 
-Step B1 Verify etcd Service status on CoreOS VMs
+Step B1 Verify etcd Service status on CoreOS VMs & Troubleshooting when restart failing upon VM reboot
 
 Kubernetes uses etcd service, which is a distributed key-value database, to store all kinds of configurations and status information. When the 4 CoreOS VMs were created in Step A7, etcd service (etcd v3) has been set up as 1 VM running etcd server and 3 VMs as etcd proxy/client. 
 
@@ -178,6 +178,67 @@ Then we log onto each of the rest 3 VMs to verify the etcd proxy is working by t
     core@core-04 /etc/systemd/system/etcd-member.service.d $ etcdctl cluster-health
     member f3c0b70e84d56c98 is healthy: got healthy result from http://172.17.8.101:2379
     cluster is healthy
+
+Please note it's possible that the etcd-member service of proxy style on core-02 & 03 & 04 fails to start when VM reboot, even though the etcd-member of server style on core-01 starts successfully when VM reboot. In this case execute the following steps to trouble shoot: 
+
+    core@core-02 ~ $ systemctl status etcd-member
+    ● etcd-member.service - etcd (System Application Container)
+       Loaded: loaded (/usr/lib/systemd/system/etcd-member.service; enabled; vendor preset: enabled)
+      Drop-In: /etc/systemd/system/etcd-member.service.d
+               └─20-clct-etcd-member.conf
+       Active: activating (auto-restart) (Result: exit-code) since Wed 2017-08-02 13:12:54 UTC; 6s ago
+         Docs: https://github.com/coreos/etcd
+      Process: 13263 ExecStart=/usr/lib/coreos/etcd-wrapper $ETCD_OPTS --name=${COREOS_VAGRANT_VIRTUALBOX_HOSTNAME} --listen-peer-    urls=http://${COREOS_VAGRANT_VIRTUALBOX_PRIVATE_IPV4}:2380 --listen-client-url
+      Process: 13252 ExecStartPre=/usr/bin/rkt rm --uuid-file=/var/lib/coreos/etcd-member-wrapper.uuid (code=exited, status=0/SUCCESS)
+      Process: 13249 ExecStartPre=/usr/bin/mkdir --parents /var/lib/coreos (code=exited, status=0/SUCCESS)
+     Main PID: 13263 (code=exited, status=1/FAILURE)
+        Tasks: 0 (limit: 32768)
+       Memory: 0B
+          CPU: 0
+       CGroup: /system.slice/etcd-member.service
+
+    Aug 02 13:12:54 core-02 systemd[1]: Failed to start etcd (System Application Container).
+    Aug 02 13:12:54 core-02 systemd[1]: etcd-member.service: Unit entered failed state.
+    Aug 02 13:12:54 core-02 systemd[1]: etcd-member.service: Failed with result 'exit-code'.
+    
+    core@core-02 ~ $ journalctl -u etcd-member -f
+    (The following error repeats)
+    ...
+    Aug 02 13:15:32 core-02 systemd[1]: etcd-member.service: Service hold-off time over, scheduling restart.
+    Aug 02 13:15:32 core-02 systemd[1]: Stopped etcd (System Application Container).
+    Aug 02 13:15:32 core-02 systemd[1]: Starting etcd (System Application Container)...
+    Aug 02 13:15:32 core-02 rkt[14013]: "666f8d6f-3915-4b49-b658-0ba3dc3151d2"
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: ++ id -u etcd
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: + exec /usr/bin/rkt run --uuid-file-save=/var/lib/coreos/etcd-member-wrapper.uuid --trust-keys-from-https --mount volume=coreos-systemd-dir,target=/run/systemd/system --volume coreos-systemd-dir,kind=host,source=/run/systemd/system,readOnly=true --mount volume=coreos-notify,target=/run/systemd/notify --volume coreos-notify,kind=host,source=/run/systemd/notify --set-env=NOTIFY_SOCKET=/run/systemd/notify --volume coreos-data-dir,kind=host,source=/var/lib/etcd,readOnly=false --volume coreos-etc-ssl-certs,kind=host,source=/etc/ssl/certs,readOnly=true --volume coreos-usr-share-certs,kind=host,source=/usr/share/ca-certificates,readOnly=true --volume coreos-etc-hosts,kind=host,source=/etc/hosts,readOnly=true --volume coreos-etc-resolv,kind=host,source=/etc/resolv.conf,readOnly=true --mount volume=coreos-data-dir,target=/var/lib/etcd --mount volume=coreos-etc-ssl-certs,target=/etc/ssl/certs --mount volume=coreos-usr-share-certs,target=/usr/share/ca-certificates --mount volume=coreos-etc-hosts,target=/etc/hosts --mount volume=coreos-etc-resolv,target=/etc/resolv.conf --inherit-env --stage1-from-dir=stage1-fly.aci quay.io/coreos/etcd:v3.1.8 --user=232 -- --name=core-02 --listen-peer-urls=http://172.17.8.102:2380 --listen-client-urls=http://0.0.0.0:2379 --initial-advertise-peer-urls=http://172.17.8.102:2380 --advertise-client-urls=http://172.17.8.102:2379 --discovery=https://discovery.etcd.io/ab3eed2aa1a29c6bab1714a49b87dbb2
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.934767 I | pkg/flags: recognized and used environment variable ETCD_DATA_DIR=/var/lib/etcd
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.935060 I | pkg/flags: recognized environment variable ETCD_NAME, but unused: shadowed by corresponding flag
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.935228 W | pkg/flags: unrecognized environment variable ETCD_USER=etcd
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.935369 W | pkg/flags: unrecognized environment variable ETCD_IMAGE_TAG=v3.1.8
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.938642 I | etcdmain: etcd Version: 3.1.8
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.938818 I | etcdmain: Git SHA: d267ca9
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.938965 I | etcdmain: Go Version: go1.7.5
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.939095 I | etcdmain: Go OS/Arch: linux/amd64
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.939222 I | etcdmain: setting maximum number of CPUs to 1, total number of available CPUs is 1
+    Aug 02 13:15:32 core-02 etcd-wrapper[14022]: 2017-08-02 13:15:32.939373 C | etcdmain: invalid datadir. Both member and proxy directories exist.
+    Aug 02 13:15:32 core-02 systemd[1]: etcd-member.service: Main process exited, code=exited, status=1/FAILURE
+    Aug 02 13:15:32 core-02 systemd[1]: Failed to start etcd (System Application Container).
+    Aug 02 13:15:32 core-02 systemd[1]: etcd-member.service: Unit entered failed state.
+    Aug 02 13:15:32 core-02 systemd[1]: etcd-member.service: Failed with result 'exit-code'.
+    ...
+    
+    In this case, remove the sub directories of member then etcd will be started successfully. 
+    
+    core@core-02 ~ $ sudo rm -rf /var/lib/etcd/*
+    core@core-02 ~ $ etcdctl member list
+    f3c0b70e84d56c98: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
+    
+(The permenant fix below needs to be re-visited????)
+    To make a permenant fix, add one line in the etcd-member servcie drop-in file as shown below (on etcd proxy VMs only). 
+    
+    core@core-02 ~ $ cd /etc/systemd/system/etcd-member.service.d/
+    core@core-02 /etc/systemd/system/etcd-member.service.d $ vi 20-clct-etcd-member.conf 
+    core@core-02 /etc/systemd/system/etcd-member.service.d $ sudo vi 20-clct-etcd-member.conf 
+    Add the line of "ExecStartPre=-/usr/bin/rkt rm -rf /var/lib/etcd/*" before the line of "ExecStart="
 
 Step B2 - Generate Kubernetes TLS Assets
 
