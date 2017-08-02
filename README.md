@@ -601,31 +601,60 @@ Now that everything is configured, we can start the kubelet, which will also sta
     core@core-02 ~ $ sudo systemctl enable kubelet
     Created symlink /etc/systemd/system/multi-user.target.wants/kubelet.service → /etc/systemd/system/kubelet.service.
 
+Now we can do the following basic health check about the K8S master components we set. Later we will set up kubectl client natively on the local Mac laptop which will connect to the API service running on core-02 to manage the K8S cluster. 
 
+    First we check the kubelet service is started and running properly. (this could take a few minutes after starting the kubelet.service)
+    
+    core@core-02 ~ $ systemctl status kubelet
+    ● kubelet.service
+       Loaded: loaded (/etc/systemd/system/kubelet.service; enabled; vendor preset: disabled)
+       Active: active (running) since Wed 2017-08-02 06:22:28 UTC; 9min ago
+     Main PID: 3633 (kubelet)
+        Tasks: 13 (limit: 32768)
+       Memory: 93.8M
+          CPU: 36.489s
+       CGroup: /system.slice/kubelet.service
+               ├─3633 /kubelet --api-servers=http://127.0.0.1:8080 --register-schedulable=false --cni-conf-dir=/etc/kubernetes/cni/net.d     --network-plugin= --container-runtime=docker --allow-privileged=true --
+               └─3741 journalctl -k -f
 
-     
+    Aug 02 06:30:52 core-02 kubelet-wrapper[3633]: W0802 06:30:52.213861    3633 helpers.go:771] eviction manager: no observation found for
+    ...
+    
+    Then we check Kube API service.
+    
+    core@core-02 ~ $ curl http://127.0.0.1:8080/version
+    {
+      "major": "1",
+      "minor": "7",
+      "gitVersion": "v1.7.2+coreos.0",
+      "gitCommit": "c6574824e296e68a20d36f00e71fa01a81132b66",
+      "gitTreeState": "clean",
+      "buildDate": "2017-07-24T23:28:22Z",
+      "goVersion": "go1.8.3",
+      "compiler": "gc",
+      "platform": "linux/amd64"
+    }
+    
+    Next we check our Pods should be starting up and downloading their containers. Once the kubelet has started, you can check it's creating its pods via the metadata api. There should be four PODs, kube-apiserver, kube-controller-manager, kube-proxy and kube-scheduler. 
+    
+    core@core-02 ~ $ curl -s localhost:10255/pods | jq -r '.items[].metadata.name'
+    kube-apiserver-172.17.8.102
+    kube-controller-manager-172.17.8.102
+    kube-proxy-172.17.8.102
+    kube-scheduler-172.17.8.102
+
+At this point, we have successfully set up the K8S Master Node on core-02. Next we will set up Worker Node on core-03 & core-04. 
+
+Step B4 - Deploy K8S Worker Node Components
+
+In this step, we deploy K8S Worker Node on core-03 & core-4. 
 
 
     
-
-
-
-
-
-
- 
-
-
-
-
     
 
 
-
-  
-
     
-
 
 
 
