@@ -703,6 +703,17 @@ Now we can do the following basic health check about the K8S master components w
     kube-controller-manager-172.17.8.102
     kube-proxy-172.17.8.102
     kube-scheduler-172.17.8.102
+    
+    core@core-02 /etc/systemd/system $ docker ps
+    CONTAINER ID        IMAGE                                      COMMAND                  CREATED             STATUS              PORTS               NAMES
+    d20f65d5eaac        quay.io/coreos/hyperkube                   "/hyperkube proxy ..."   6 minutes ago       Up 6 minutes                            k8s_kube-proxy_kube-proxy-172.17.8.102_kube-system_b746724e282bfb90131d57df30375f98_4
+    fef5416eed3f        quay.io/coreos/hyperkube                   "/hyperkube apiser..."   6 minutes ago       Up 6 minutes                            k8s_kube-apiserver_kube-apiserver-172.17.8.102_kube-system_12327280fb3060d12bef125b7eec7345_4
+    56649b7bcb32        quay.io/coreos/hyperkube                   "/hyperkube contro..."   6 minutes ago       Up 6 minutes                            k8s_kube-controller-manager_kube-controller-manager-172.17.8.102_kube-system_dd33222f8ef11e61dc945aea3f1da733_5
+    c5c3a5ae943f        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 6 minutes ago       Up 6 minutes                            k8s_POD_kube-controller-manager-172.17.8.102_kube-system_dd33222f8ef11e61dc945aea3f1da733_4
+    a72a06d7589b        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 6 minutes ago       Up 6 minutes                            k8s_POD_kube-proxy-172.17.8.102_kube-system_b746724e282bfb90131d57df30375f98_4
+    a23b03cabb9a        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 6 minutes ago       Up 6 minutes                            k8s_POD_kube-apiserver-172.17.8.102_kube-system_12327280fb3060d12bef125b7eec7345_4
+    be440c4c9bda        quay.io/coreos/hyperkube                   "/hyperkube schedu..."   6 minutes ago       Up 6 minutes                            k8s_kube-scheduler_kube-scheduler-172.17.8.102_kube-system_fa3811c223367ac4d37eb181f83a8aac_5
+    bcb25af8bd49        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 6 minutes ago       Up 6 minutes                            k8s_POD_kube-scheduler-172.17.8.102_kube-system_fa3811c223367ac4d37eb181f83a8aac_4
 
 At this point, we have successfully set up the K8S Master Node on core-02. Next we will set up Worker Node on core-03 & core-04. 
 
