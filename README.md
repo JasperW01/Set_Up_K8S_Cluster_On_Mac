@@ -238,7 +238,7 @@ Please note it's possible that the etcd-member service of proxy style on core-02
     core@core-02 ~ $ cd /etc/systemd/system/etcd-member.service.d/
     core@core-02 /etc/systemd/system/etcd-member.service.d $ vi 20-clct-etcd-member.conf 
     core@core-02 /etc/systemd/system/etcd-member.service.d $ sudo vi 20-clct-etcd-member.conf 
-    Add the line of "ExecStartPre=-/usr/bin/rkt rm -rf /var/lib/etcd/*" before the line of "ExecStart="
+    Add the line of "ExecStartPre=-/usr/bin/rkt rm -rf /var/lib/etcd/member" before the line of "ExecStart="
 
 Step B2 - Generate Kubernetes TLS Assets
 
@@ -708,7 +708,19 @@ At this point, we have successfully set up the K8S Master Node on core-02. Next 
 
 Step B4 - Deploy K8S Worker Node Components
 
-In this step, we deploy K8S Worker Node on core-03 & core-4. 
+In this step, we deploy K8S Worker Node on both core-03 & core-4. The detailed steps are shown as be executed on core-03 and just need to logically repeat the same on core-04. 
+
+First we prepare TSL certificates/assets on core-03 for the Worker Node component
+
+    core@core-03 ~ $ sudo mkdir -p /etc/kubernetes/ssl
+    core@core-02 ~ $ cd /etc/kubernetes/ssl
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/ca.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver-key.pem .
+    core@core-02 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
+
+Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
+
 
 
     
