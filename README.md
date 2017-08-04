@@ -7,16 +7,16 @@ set up a full Kubernetes cluster step by step.
 
 At the high level, there are three steps during the process: 
 
-Section A. Use Vagrant to create four CoreOS VMs on a MacPro laptop. 
+    Section A. Use Vagrant to create four CoreOS VMs on a MacPro laptop. 
 
-Section B. On those 4 CoreOS VMs, set up a Kubernetes cluster step by step with 
-  i. one etcd server
-  ii. one k8s master node
-  iii. Two k8s worker nodes (more can be added afterwards)
+    Section B. On those 4 CoreOS VMs, set up a Kubernetes cluster step by step with 
+      i. one etcd server
+      ii. one k8s master node
+      iii. Two k8s worker nodes (more can be added afterwards)
   
-  We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit more in the long run. 
+      We choose to install K8s cluster step by step so that it can give you deeper understanding about the moving parts and we can benefit more in the long run. 
    
-Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
+    Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
 A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 
@@ -314,6 +314,19 @@ Then we generates a unique TLS certificate for every Kubernetes worker node, i.e
     Getting CA Private Key
     
     Repeat the above steps for core-04
+    
+Then we generate the Cluster Administrator Keypair, which will be used by the kubectl client to be set up in local MacPro host. 
+
+    core@core-02 ~/share/certificates $ openssl genrsa -out admin-key.pem 2048
+    Generating RSA private key, 2048 bit long modulus
+    ............................+++
+    ..................................................................................+++
+    e is 65537 (0x10001)
+    core@core-02 ~/share/certificates $ openssl req -new -key admin-key.pem -out admin.csr -subj "/CN=kube-admin"
+    core@core-02 ~/share/certificates $ openssl x509 -req -in admin.csr -CA ca.pem -CAkey ca-key.pem -CAcreateserial -out admin.pem -days     365
+    Signature ok
+    subject=/CN=kube-admin
+    Getting CA Private Key
 
 Step B3 - Deploy K8S Master Node Components
 
@@ -920,6 +933,14 @@ Verify kubelet started and kube proxy also started.
     bfa49796eac8        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 10 minutes ago      Up 10 minutes                           k8s_POD_kube-proxy-172.17.8.103_kube-system_16f5df290df73a44cb4049674da09067_0
 
 Repeat the above on another Worker Node -core-04. 
+
+Step B5 - Set Native Kubectl Client on MacPro
+
+In this step, we will set up native Kubectl client on MacPro which connects to the API Server running on K8S Master Node core-01 to manage K8S cluster. 
+
+In the terminal of the local MacPro, execute the following steps to download kubectl binary for MacOS and set it up. 
+
+$ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.6.1/bin/darwin/amd64/kubectl
 
 
 
