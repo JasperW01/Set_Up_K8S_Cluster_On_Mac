@@ -940,10 +940,18 @@ In this step, we will set up native Kubectl client on MacPro which connects to t
 
 In the terminal of the local MacPro, execute the following steps to download kubectl binary for MacOS and set it up. 
 
-$ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.6.1/bin/darwin/amd64/kubectl
+    $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.6.1/bin/darwin/amd64/kubectl
+    $ chmod +x kubectl
+    $ mv kubectl /usr/local/bin/kubectl
 
+Now we configure kubectl to connect to the target cluster using the following commands. The following environment variables are used in those commands.
 
+    ${MASTER_HOST}=172.17.8.102
+    ${CA_CERT}=/Users/jaswang/k8s/coreos-vagrant/certificates/ca.pem
+    ${ADMIN_KEY}=/Users/jaswang/k8s/coreos-vagrant/certificates/admin-key.pem
+    ${ADMIN_CERT}=/Users/jaswang/k8s/coreos-vagrant/certificates/admin.pem
 
+    MacBook-Pro:~ jaswang$ kubectl config set-cluster default-cluster --server=https://172.17.8.102 --certificate-authority=/Users/jaswang/k8s/coreos-vagrant/certificates/ca.pem
  
  
 
