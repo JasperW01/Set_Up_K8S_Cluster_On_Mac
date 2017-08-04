@@ -870,6 +870,60 @@ The following YAML file for kub-proxy POD uses the following environment variabl
           path: "/etc/kubernetes/ssl"
 
 In order to facilitate secure communication between Kubernetes components, kubeconfig can be used to define authentication settings. In this case, the kubelet and proxy are reading this configuration to communicate with the API.
+
+    core@core-03 ~ $ cd /etc/kubernetes/
+    core@core-03 /etc/kubernetes $ sudo vi worker-kubeconfig.yaml
+    core@core-03 /etc/kubernetes $ cat worker-kubeconfig.yaml 
+    apiVersion: v1
+    kind: Config
+    clusters:
+    - name: local
+      cluster:
+        certificate-authority: /etc/kubernetes/ssl/ca.pem
+    users:
+    - name: kubelet
+      user:
+        client-certificate: /etc/kubernetes/ssl/worker.pem
+        client-key: /etc/kubernetes/ssl/worker-key.pem
+    contexts:
+    - context:
+        cluster: local
+        user: kubelet
+      name: kubelet-context
+    current-context: kubelet-context
+
+Now we can start the Worker services.
+
+    core@core-03 ~ $ sudo systemctl daemon-reload
+    core@core-03 ~ $ sudo systemctl start flanneld
+    core@core-03 ~ $ sudo systemctl start kubelet
+    core@core-03 ~ $ sudo systemctl start docker
+
+Verify kubelet started and kube proxy also started. 
+
+    core@core-03 ~ $ systemctl status kubelet
+    ● kubelet.service
+       Loaded: loaded (/etc/systemd/system/kubelet.service; disabled; vendor preset: disabled)
+       Active: active (running) since Fri 2017-08-04 10:11:23 UTC; 8min ago
+      Process: 1461 ExecStartPre=/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid (code=exited, status=254)
+      Process: 1459 ExecStartPre=/usr/bin/mkdir -p /var/log/containers (code=exited, status=0/SUCCESS)
+      Process: 1456 ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests (code=exited, status=0/SUCCESS)
+     Main PID: 1466 (kubelet)
+        Tasks: 13 (limit: 32768)
+       Memory: 157.0M
+    ...
+    core@core-03 ~ $ curl -s localhost:10255/pods | jq -r '.items[].metadata.name'
+    kube-proxy-172.17.8.103
+    core@core-03 ~ $ docker ps
+    CONTAINER ID        IMAGE                                      COMMAND                  CREATED             STATUS              PORTS               NAMES
+    3a6b49755f98        quay.io/coreos/hyperkube                   "/hyperkube proxy ..."   9 minutes ago       Up 9 minutes                            k8s_kube-proxy_kube-proxy-172.17.8.103_kube-system_16f5df290df73a44cb4049674da09067_0
+    bfa49796eac8        gcr.io/google_containers/pause-amd64:3.0   "/pause"                 10 minutes ago      Up 10 minutes                           k8s_POD_kube-proxy-172.17.8.103_kube-system_16f5df290df73a44cb4049674da09067_0
+
+Repeat the above on another Worker Node -core-04. 
+
+
+
+
  
  
 
