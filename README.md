@@ -394,29 +394,6 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
                 "isDefaultGateway": true
             }
         }
-    core@core-02 ~ $ systemctl status docker
-    ● docker.service - Docker Application Container Engine
-       Loaded: loaded (/run/torcx/unpack/docker/lib/systemd/system/docker.service; linked; vendor preset: disabled)
-       Active: active (running) since Sat 2017-07-29 02:11:50 UTC; 30min ago
-         Docs: http://docs.docker.com
-     Main PID: 2480 (dockerd)
-        Tasks: 8
-       Memory: 14.2M
-          CPU: 1.463s
-       CGroup: /system.slice/docker.service
-               └─2480 /run/torcx/bin/dockerd --host=fd:// --containerd=/var/run/docker/libcontainerd/docker-containerd.sock --selinux-    enabled=true --bip=10.1.4.1/24 --mtu=1472 --ip-masq=false
-    
-    Jul 29 02:11:50 core-02 systemd[1]: Starting Docker Application Container Engine...
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.079921481Z" level=error msg="Failed to built-in GetDriver graph aufs  /var/lib/docker"
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.173229979Z" level=info msg="Graph migration to content-addressability     took 0.00 seconds"
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.173660858Z" level=info msg="Loading containers: start."
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.447055401Z" level=info msg="Loading containers: done."
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.468144470Z" level=info msg="Daemon has completed initialization"
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.469396879Z" level=info msg="Docker daemon" commit=89658be    graphdriver=overlay2 version=17.05.0-ce
-    Jul 29 02:11:50 core-02 systemd[1]: Started Docker Application Container Engine.
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.481145428Z" level=info msg="API listen on [::]:2375"
-    Jul 29 02:11:50 core-02 env[2480]: time="2017-07-29T02:11:50.481352682Z" level=info msg="API listen on /var/run/docker.sock"
-    Warning: docker.service changed on disk. Run 'systemctl daemon-reload' to reload units.
 
 Now we create kubelet unit on K8S master. The kubelet is the agent on each machine that starts and stops Pods and other machine-level tasks. The kubelet communicates with the API server (also running on the master nodes) with the TLS certificates we placed on disk earlier.
 
@@ -724,13 +701,177 @@ In this step, we deploy K8S Worker Node on both core-03 & core-4. The detailed s
 First we prepare TSL certificates/assets on core-03 for the Worker Node component
 
     core@core-03 ~ $ sudo mkdir -p /etc/kubernetes/ssl
-    core@core-02 ~ $ cd /etc/kubernetes/ssl
-    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/ca.pem .
-    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver.pem .
-    core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver-key.pem .
-    core@core-02 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
+    core@core-03 ~ $ cd /etc/kubernetes/ssl
+    core@core-03 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/ca.pem .
+    core@core-03 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/core-03-worker.pem .
+    core@core-03 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/core-03-worker-key.pem .
+    core@core-03 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
+
+Then create symlinks to the worker-specific certificate and key so that the remaining configurations on the workers do not have to be unique per worker.
+
+    core@core-03 ~ $ cd /etc/kubernetes/ssl/
+    core@core-03 /etc/kubernetes/ssl $ sudo ln -s core-03-worker.pem worker.pem
+    core@core-03 /etc/kubernetes/ssl $ sudo ln -s core-03-worker-key.pem worker-key.pem
 
 Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
+
+    core@core-03 ~ $ sudo mkdir /etc/flannel
+    core@core-03 ~ $ sudo vi /etc/flannel/options.env
+    (Add the following two lines)
+    FLANNELD_IFACE=172.17.8.103
+    FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
+
+Next create the systemd drop-in for changing flanneld service setting. 
+
+    core@core-03 ~ $ sudo netstat -nap|grep flanneld
+    tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
+    core@core-02 /etc/kubernetes/ssl $ cd /etc/systemd/system/flanneld.service.d/
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo vi 40-ExecStartPre-symlink.conf
+    (Add the following two lines)
+    [Service]
+    ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl daemon-reload
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart flanneld
+    core@core-02 ~ $ sudo netstat -nap|grep flanneld
+    (After the change, flanneld now is connecting to etcd server on core-01)
+    tcp        0      0 172.17.8.102:49880      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49876      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
+    udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
+
+In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
+
+    a. use systend drop-in to configure flanneld running prior to Docker starting
+    b. create Docker CNI (Containter Network Interface) options file
+    c. set up flannel CNI configuration file (Please note, we choose to use Flannel instead of Calico for container networking)
+
+    core@core-03 ~ $ systemctl status docker
+    (Before change, docker service is not active)
+    ● docker.service - Docker Application Container Engine
+       Loaded: loaded (/run/torcx/unpack/docker/lib/systemd/system/docker.service; linked; vendor preset: disabled)
+       Active: inactive (dead)
+         Docs: http://docs.docker.com
+    core@core-03 ~ $ sudo mkdir -p /etc/systemd/system/docker.service.d
+    core@core-03 ~ $ cd /etc/systemd/system/docker.service.d
+    core@core-03 /etc/systemd/system/docker.service.d $ sudo vi 40-flannel.conf
+    (Add the following lines)
+        [Unit]
+        Requires=flanneld.service
+        After=flanneld.service
+        [Service]
+        EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
+    core@core-03 ~ $ sudo mkdir /etc/kubernetes/cni
+    core@core-03 ~ $ cd /etc/kubernetes/cni/
+    core@core-03 /etc/kubernetes/cni $ sudo vi docker_opts_cni.env
+    (Add the following lines)
+        DOCKER_OPT_BIP=""
+        DOCKER_OPT_IPMASQ=""
+    core@core-03 /etc/kubernetes/cni $ sudo mkdir net.d
+    core@core-03 /etc/kubernetes/cni $ cd net.d/
+    core@core-03 /etc/kubernetes/cni/net.d $ sudo vi 10-flannel.conf
+    (Add the following lines)
+        {
+            "name": "podnet",
+            "type": "flannel",
+            "delegate": {
+                "isDefaultGateway": true
+            }
+        }
+
+Now we create kubelet unit on workder node. The following kubelet service unit file uses the following environment variables: 
+
+    ${MASTER_HOST} = 172.17.8.102
+    ${ADVERTISE_IP} = 172.17.8.103
+    ${DNS_SERVICE_IP} = 10.3.0.10
+    ${K8S_VER} =  v1.7.2_coreos.0
+    
+    core@core-03 ~ $ cd /etc/systemd/system
+    core@core-03 /etc/systemd/system $ sudo vi kubelet.service
+    (Add the following lines)
+    [Service]
+    Environment=KUBELET_IMAGE_TAG=v1.7.2_coreos.0
+    Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
+      --volume dns,kind=host,source=/etc/resolv.conf \
+      --mount volume=dns,target=/etc/resolv.conf \
+      --volume var-log,kind=host,source=/var/log \
+      --mount volume=var-log,target=/var/log"
+    ExecStartPre=/usr/bin/mkdir -p /etc/kubernetes/manifests
+    ExecStartPre=/usr/bin/mkdir -p /var/log/containers
+    ExecStartPre=-/usr/bin/rkt rm --uuid-file=/var/run/kubelet-pod.uuid
+    ExecStart=/usr/lib/coreos/kubelet-wrapper \
+      --api-servers=https://172.17.8.102 \
+      --cni-conf-dir=/etc/kubernetes/cni/net.d \
+      --network-plugin=${NETWORK_PLUGIN} \
+      --container-runtime=docker \
+      --register-node=true \
+      --allow-privileged=true \
+      --pod-manifest-path=/etc/kubernetes/manifests \
+      --hostname-override=172.17.8.103 \
+      --cluster_dns=10.3.0.10 \
+      --cluster_domain=cluster.local \
+      --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml \
+      --tls-cert-file=/etc/kubernetes/ssl/worker.pem \
+      --tls-private-key-file=/etc/kubernetes/ssl/worker-key.pem
+    ExecStop=-/usr/bin/rkt stop --uuid-file=/var/run/kubelet-pod.uuid
+    Restart=always
+    RestartSec=10
+    
+    [Install]
+    WantedBy=multi-user.target
+
+Now we set up kube-proxy Pod YAML file. 
+
+The following YAML file for kub-proxy POD uses the following environment variable;
+
+    ${MASTER_HOST} = 172.17.8.102
+    ${K8S_VER} =  v1.7.2_coreos.0
+    
+    core@core-03 ~ $ sudo mkdir /etc/kubernetes/manifests
+    core@core-02 ~ $ cd /etc/kubernetes/manifests
+    core@core-02 /etc/kubernetes/manifests $ sudo vi kube-proxy.yaml
+    core@core-02 /etc/kubernetes/manifests $ cat kube-proxy.yaml 
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-proxy
+      namespace: kube-system
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-proxy
+        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        command:
+        - /hyperkube
+        - proxy
+        - --master=172.17.8.102
+        - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /etc/ssl/certs
+          name: "ssl-certs"
+        - mountPath: /etc/kubernetes/worker-kubeconfig.yaml
+          name: "kubeconfig"
+          readOnly: true
+        - mountPath: /etc/kubernetes/ssl
+          name: "etc-kube-ssl"
+          readOnly: true
+      volumes:
+      - name: "ssl-certs"
+        hostPath:
+          path: "/usr/share/ca-certificates"
+      - name: "kubeconfig"
+        hostPath:
+          path: "/etc/kubernetes/worker-kubeconfig.yaml"
+      - name: "etc-kube-ssl"
+        hostPath:
+          path: "/etc/kubernetes/ssl"
+
+In order to facilitate secure communication between Kubernetes components, kubeconfig can be used to define authentication settings. In this case, the kubelet and proxy are reading this configuration to communicate with the API.
+ 
+ 
 
 
 
