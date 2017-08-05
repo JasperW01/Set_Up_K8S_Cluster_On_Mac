@@ -27,6 +27,8 @@ Vagrant is a simple-to-use command line virtual machine manager. By working with
 
 Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
+In our setting up, we will have 4 VMs and 1 of them will be running etcd server and the other three will be etcd clients/proxies. So we use the URL of  https://discovery.etcd.io/new?size=1 (please note size is 1 here) to request a new etcd discovery token and using vagrant to create and boot the first VM of core-01 first which will become the etcd server member (only 1 member in the etcd cluster). Then we use vagrant to create/boot another 3 VMs with the same disco token which will be become etcd proxies to connect to core-01. As a result, 1 VM will be dedicated to etcd server and the other 3 VMs will be etcd clients and installed with Kubernetes components. As per k8s best practice, it's strongly recommanded to have VMs dedicated to etcd cluster separate to the VMs used in K8S cluster. In our case, the etcd cluster is composed of 1 VM only to save resources of the Mac. 
+
 ### Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
@@ -58,25 +60,53 @@ In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreO
 
 ### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
 
-In this step, we set up the number of VMs to be created by Vagrant as 4 and also enable Docker Port Forwarding so that later we can use the local Docker command on Mac to connect to the Docker engine inside the VMs created by Vagrant.
+In this step, we set up the number of VM to be created by Vagrant as 1 which will be the first VM to be created and will become the one-node etcd cluster.
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
     MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
-    (set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
+    (verify $num_instances=1)
 
-### Step A5. Enable shared directory 
+### Step A5. Choose to use CoreOS beta channel instead of alpha channel
 
-In this step, we will enable shared directory so that the VMs to be created by Vagrant can have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
+By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change it to Beta channel instead. Please note there is there is no vagrant_virtualbox setting avaible in CoreOS stable channel.  
+
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
+    (Also replace "alpha" with "beta" so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
+
+### Step A6. Create & Boot First VM to be etcd Server
+
+In this step, we will actually create and start the first CoreOS VMs using Vagrant's default VirtualBox provider, which becomes etcd server. 
+
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant up
+    (During the process, Vagrant will pull latest the CoreOS image from Beta channel and started in VirtualBox.)
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant status
+    Current machine states:
+    core-01                   running (virtualbox)
+
+    This environment represents multiple VMs. The VMs are all listed
+    above with their current state. For more information about a specific
+    VM, run `vagrant status NAME`.
+    
+### Step A7. Create & Boot Additional 3 VMs Via Vagrant
+
+In this step, we will create & boot additional 3 VMs via vagrant, which will become etcd proxies and will host the K8S cluster.
+
+First change config.rb to increase instance number and vm_memory
+
+    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
+    (set $num_instances=4 and $vm_memory = 2048)
+
+Then change Vagrantfile to enable shared directory for those 3 VMs so that they have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
     (Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
-    (Also replace "alpha" with "beta" so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
 
-### Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
-
-In this step, we will actually create and start CoreOS VMs using Vagrant's default VirtualBox provider. 
+Now create and boot 3 new VMs in VirtualBox provider. 
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vagrant up
@@ -92,7 +122,7 @@ In this step, we will actually create and start CoreOS VMs using Vagrant's defau
     above with their current state. For more information about a specific
     VM, run `vagrant status NAME`.
 
-### Step A7 Verify CoreOS VMs created by Vagrant
+### Step A8 Verify CoreOS VMs created by Vagrant
 
 In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
 
