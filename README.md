@@ -72,6 +72,7 @@ In this step, we will enable shared directory so that the VMs to be created by V
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
     (Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
+    (Also replace "alpha" with "beta" so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
 
 ### Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
 
