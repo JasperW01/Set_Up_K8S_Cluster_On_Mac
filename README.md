@@ -408,6 +408,8 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
                 "isDefaultGateway": true
             }
         }
+    core@core-02 ~ $ sudo systemctl daemon-reload
+    core@core-02 ~ $ sudo systemctl start docker
 
 Now we create kubelet unit on K8S master. The kubelet is the agent on each machine that starts and stops Pods and other machine-level tasks. The kubelet communicates with the API server (also running on the master nodes) with the TLS certificates we placed on disk earlier.
 
@@ -793,6 +795,8 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
                 "isDefaultGateway": true
             }
         }
+    core@core-03 ~ $ sudo systemctl daemon-reload
+    core@core-03 ~ $ sudo systemctl start docker
 
 Now we create kubelet unit on workder node. The following kubelet service unit file uses the following environment variables: 
 
