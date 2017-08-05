@@ -982,8 +982,161 @@ Now check that the client is configured properly by using kubectl to inspect the
     172.17.8.102   Ready,SchedulingDisabled   2d        v1.7.2+coreos.0
     172.17.8.103   Ready                      16h       v1.7.2+coreos.0
     172.17.8.104   Ready                      12m       v1.7.2+coreos.0
+    MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods --all-namespaces
+    NAMESPACE     NAME                                   READY     STATUS    RESTARTS   AGE
+    kube-system   kube-apiserver-172.17.8.102            1/1       Running   7          3d
+    kube-system   kube-controller-manager-172.17.8.102   1/1       Running   8          3d
+    kube-system   kube-proxy-172.17.8.102                1/1       Running   7          3d
+    kube-system   kube-proxy-172.17.8.103                1/1       Running   1          1d
+    kube-system   kube-proxy-172.17.8.104                1/1       Running   1          8h
+    kube-system   kube-scheduler-172.17.8.102            1/1       Running   8          3d
     
+### Step B6 - Deploy Add-ons into K8S Cluster
+
+In this step, we will deploy several add-ons into K8S cluster, including DSN Add-on and Kube Dashboard add-on.
+
+Add-ons are built on the same Kubernetes components as user-submitted jobs — Pods, Replication Controllers and Services. We're going to install the DNS add-on with kubectl. The DNS add-on allows your services to have a DNS name in addition to an IP address. This is helpful for simplified service discovery between applications. 
+
+First we create the file of dns-addon.yml on the local MacPro laptop and then use kubectl client on MacPro to deploy it into K8S cluster. The YAML definition is based on the upstream DNS addon in the Kubernetes addon folder.
+
+    The file below use the following environment variable
     
+    ${DNS_SERVICE_IP}=10.3.0.10
+    
+    MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
+    MacBook-Pro:coreos-vagrant jaswang$ mkdir add-ons
+    MacBook-Pro:coreos-vagrant jaswang$ cd add-ons/
+    MacBook-Pro:add-ons jaswang$ vi dns-addon.yml
+    (Add the following lines into this new file)
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: kube-dns
+      namespace: kube-system
+      labels:
+        k8s-app: kube-dns
+        kubernetes.io/cluster-service: "true"
+        kubernetes.io/name: "KubeDNS"
+    spec:
+      selector:
+        k8s-app: kube-dns
+      clusterIP: 10.3.0.10
+      ports:
+      - name: dns
+        port: 53
+        protocol: UDP
+      - name: dns-tcp
+        port: 53
+        protocol: TCP
+
+
+    ---
+
+
+    apiVersion: v1
+    kind: ReplicationController
+    metadata:
+      name: kube-dns-v20
+      namespace: kube-system
+      labels:
+        k8s-app: kube-dns
+        version: v20
+        kubernetes.io/cluster-service: "true"
+    spec:
+      replicas: 1
+      selector:
+        k8s-app: kube-dns
+        version: v20
+      template:
+        metadata:
+          labels:
+            k8s-app: kube-dns
+            version: v20
+          annotations:
+            scheduler.alpha.kubernetes.io/critical-pod: ''
+            scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
+        spec:
+          containers:
+          - name: kubedns
+            image: gcr.io/google_containers/kubedns-amd64:1.9
+            resources:
+              limits:
+                memory: 170Mi
+              requests:
+                cpu: 100m
+                memory: 70Mi
+            livenessProbe:
+              httpGet:
+                path: /healthz-kubedns
+                port: 8080
+                scheme: HTTP
+              initialDelaySeconds: 60
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 5
+            readinessProbe:
+              httpGet:
+                path: /readiness
+                port: 8081
+                scheme: HTTP
+              initialDelaySeconds: 3
+              timeoutSeconds: 5
+            args:
+            - --domain=cluster.local.
+            - --dns-port=10053
+            ports:
+            - containerPort: 10053
+              name: dns-local
+              protocol: UDP
+            - containerPort: 10053
+              name: dns-tcp-local
+              protocol: TCP
+          - name: dnsmasq
+            image: gcr.io/google_containers/kube-dnsmasq-amd64:1.4.1
+            livenessProbe:
+              httpGet:
+                path: /healthz-dnsmasq
+                port: 8080
+                scheme: HTTP
+              initialDelaySeconds: 60
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 5
+            args:
+            - --cache-size=1000
+            - --no-resolv
+            - --server=127.0.0.1#10053
+            - --log-facility=-
+            ports:
+            - containerPort: 53
+              name: dns
+              protocol: UDP
+            - containerPort: 53
+              name: dns-tcp
+              protocol: TCP
+          - name: healthz
+            image: gcr.io/google_containers/exechealthz-amd64:v1.2.0
+            resources:
+              limits:
+                memory: 50Mi
+              requests:
+                cpu: 10m
+                memory: 50Mi
+            args:
+            - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null
+            - --url=/healthz-dnsmasq
+            - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
+            - --url=/healthz-kubedns
+            - --port=8080
+            - --quiet
+            ports:
+            - containerPort: 8080
+              protocol: TCP
+          dnsPolicy: Default
+
+    
+
+
 
 
 
