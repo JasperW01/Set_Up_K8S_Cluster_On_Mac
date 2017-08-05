@@ -19,8 +19,7 @@ At the high level, there are three steps during the process:
     Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
 
-#Section A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
-
+# Section A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 
 The steps in this section are mainly sourced from  https://coreos.com/os/docs/latest/booting-on-vagrant.html. However some steps in this article are not consistent with the correpsonding artifects. As a consequence, we have corrected some steps according to the README.mod file clones from the corresponding GitHub repository and CoreOS common practice. 
 
@@ -28,7 +27,7 @@ Vagrant is a simple-to-use command line virtual machine manager. By working with
 
 Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
-Step A1. Clone the CoreOS-Vagrant repository from GitHub
+## Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
