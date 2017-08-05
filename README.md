@@ -229,11 +229,11 @@ Please note it's possible that the etcd-member service of proxy style on core-02
     
     In this case, remove the sub directories of member then etcd will be started successfully. 
     
-    core@core-02 ~ $ sudo rm -rf /var/lib/etcd/*
+    core@core-02 ~ $ sudo rm -rf /var/lib/etcd/member
+    core@core-02 ~ $ sudo systemctl restart etcd-member 
     core@core-02 ~ $ etcdctl member list
     f3c0b70e84d56c98: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
-    
-(The permenant fix below needs to be re-visited????)
+
     To make a permenant fix, add one line in the etcd-member servcie drop-in file as shown below (on etcd proxy VMs only). 
     
     core@core-02 ~ $ cd /etc/systemd/system/etcd-member.service.d/
