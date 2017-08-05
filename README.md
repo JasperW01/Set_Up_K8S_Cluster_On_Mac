@@ -891,7 +891,7 @@ In order to facilitate secure communication between Kubernetes components, kubec
 
     core@core-03 ~ $ cd /etc/kubernetes/
     core@core-03 /etc/kubernetes $ sudo vi worker-kubeconfig.yaml
-    core@core-03 /etc/kubernetes $ cat worker-kubeconfig.yaml 
+    (Add the following lines into this new file)
     apiVersion: v1
     kind: Config
     clusters:
