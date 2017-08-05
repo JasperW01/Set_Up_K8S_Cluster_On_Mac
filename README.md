@@ -22,6 +22,7 @@ At the high level, there are three steps during the process:
 A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 ------------------------------------------------
 
+
 The steps in this section are mainly sourced from  https://coreos.com/os/docs/latest/booting-on-vagrant.html. However some steps in this article are not consistent with the correpsonding artifects. As a consequence, we have corrected some steps according to the README.mod file clones from the corresponding GitHub repository and CoreOS common practice. 
 
 Vagrant is a simple-to-use command line virtual machine manager. By working with VirtualBox (or VMWare which requires to purchase plug-in), it virtually turns your MacPro laptop into a datacentre.
