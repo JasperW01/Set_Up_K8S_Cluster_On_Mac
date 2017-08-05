@@ -940,7 +940,7 @@ In this step, we will set up native Kubectl client on MacPro which connects to t
 
 In the terminal of the local MacPro, execute the following steps to download kubectl binary for MacOS and set it up. 
 
-    $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.6.1/bin/darwin/amd64/kubectl
+    $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.7.2/bin/darwin/amd64/kubectl
     $ chmod +x kubectl
     $ mv kubectl /usr/local/bin/kubectl
 
@@ -952,6 +952,24 @@ Now we configure kubectl to connect to the target cluster using the following co
     ${ADMIN_CERT}=/Users/jaswang/k8s/coreos-vagrant/certificates/admin.pem
 
     MacBook-Pro:~ jaswang$ kubectl config set-cluster default-cluster --server=https://172.17.8.102 --certificate-authority=/Users/jaswang/k8s/coreos-vagrant/certificates/ca.pem
+    Cluster "default-cluster" set.
+    MacBook-Pro:bin jaswang$ kubectl config set-credentials default-admin --certificate-authority=/Users/jaswang/k8s/coreos-vagrant/certificates/ca.pem --client-key=/Users/jaswang/k8s/coreos-vagrant/certificates/admin-key.pem --client-certificate=/Users/jaswang/k8s/coreos-vagrant/certificates/admin.pem 
+    User "default-admin" set.
+    MacBook-Pro:bin jaswang$ kubectl config set-context default-system --cluster=default-cluster --user=default-admin
+    Context "default-system" created.
+    MacBook-Pro:bin jaswang$ kubectl config use-context default-system
+    Switched to context "default-system".
+
+Now check that the client is configured properly by using kubectl to inspect the cluster:
+    
+    MacBook-Pro:bin jaswang$ kubectl get nodes
+    NAME           STATUS                     AGE       VERSION
+    172.17.8.102   Ready,SchedulingDisabled   2d        v1.7.2+coreos.0
+    172.17.8.103   Ready                      16h       v1.7.2+coreos.0
+
+
+
+
  
  
 
