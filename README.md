@@ -1,4 +1,4 @@
-# Set_Up_K8S_Cluster_On_Mac
+# Install Kubernetes Cluster with 2 minions on MacPro with Vagrant & VirtualBox
 
 In the article, we will describe how to set up a full Kubernetes cluster on a MacPro laptop. The Mac we are using is at version 10.12.5. 
 
@@ -19,7 +19,7 @@ At the high level, there are three steps during the process:
     Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
 
-# Section A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
+## Section A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 
 The steps in this section are mainly sourced from  https://coreos.com/os/docs/latest/booting-on-vagrant.html. However some steps in this article are not consistent with the correpsonding artifects. As a consequence, we have corrected some steps according to the README.mod file clones from the corresponding GitHub repository and CoreOS common practice. 
 
@@ -27,7 +27,7 @@ Vagrant is a simple-to-use command line virtual machine manager. By working with
 
 Before we start the steps, we assume the Oracle VirtualBox and Vagrant have already been installed on the Mac laptop. VirtualBox for Mac can be downloaded from https://www.virtualbox.org/wiki/Downloads and Vagrant binary for Mac can be downloaded from https://www.vagrantup.com/downloads.html. 
 
-## Step A1. Clone the CoreOS-Vagrant repository from GitHub
+### Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
 
@@ -35,7 +35,7 @@ On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS.
     MacBook-Pro:~ jaswang$ cd k8s/
     MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
 
-Step A2. Request a new etcd discovery token
+### Step A2. Request a new etcd discovery token
 
 In our setting up, we will have 4 VMs and 1 of them will be running etcd server and the other three will be etcd clients. So we use the URL of  https://discovery.etcd.io/new?size=1 (please note size is 1 here) to request a new etcd discovery token and the token will be applied to all 4 VMs to be created. As a result, 1 VM will be dedicated to etcd server and the other 3 VMs will be etcd clients and installed with Kubernetes components. As per k8s best practice, it's strongly recommanded to have VMs dedicated to etcd cluster separate to the VMs used in K8S cluster. In our case, the etcd cluster is composed of 1 VM only to save resources of the Mac. 
 
@@ -45,7 +45,7 @@ Please note in the latest CoreOS Container Linux image, it's using etcd V3 (i.e.
     MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
     ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
 
-Step A3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
+### Step A3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
 
 In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreOS has been superceded by CoreOS Ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and in particular it's expecting a Ignition file of config.ign file instead of a cloud-config file of user-data. So as per CoreOS common practice, we need to update the cl.conf in the cloned repository with the etcd discovery token retrieved in Step 2 above and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
 
@@ -56,7 +56,7 @@ In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreO
     (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2)
     MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 
-Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
+### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
 
 In this step, we set up the number of VMs to be created by Vagrant as 4 and also enable Docker Port Forwarding so that later we can use the local Docker command on Mac to connect to the Docker engine inside the VMs created by Vagrant.
 
@@ -65,7 +65,7 @@ In this step, we set up the number of VMs to be created by Vagrant as 4 and also
     MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
     (set $num_instances=4 and uncomment out the line of $expose_docker_tcp and change the number to 2370)
 
-Step A5. Enable shared directory 
+### Step A5. Enable shared directory 
 
 In this step, we will enable shared directory so that the VMs to be created by Vagrant can have visibility to the local directory of Mac. By this way, it's easy to get codes and Docker files from local Mac directory into CoreOS VMs. 
 
@@ -73,7 +73,7 @@ In this step, we will enable shared directory so that the VMs to be created by V
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
     (Uncomment out the line of config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp'])
 
-Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
+### Step A6. Start CoreOS VMs using Vagrant's default VirtualBox provider
 
 In this step, we will actually create and start CoreOS VMs using Vagrant's default VirtualBox provider. 
 
@@ -91,7 +91,7 @@ In this step, we will actually create and start CoreOS VMs using Vagrant's defau
     above with their current state. For more information about a specific
     VM, run `vagrant status NAME`.
 
-Step A7 Verify CoreOS VMs created by Vagrant
+### Step A7 Verify CoreOS VMs created by Vagrant
 
 In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
 
@@ -107,9 +107,7 @@ In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
     Jul 23 13:19:36 core-01 systemd[1258]: Startup finished in 21ms.
     Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
----------------------------------------
-Section B. SET UP KUBERNETES CLUSTER ON MAC
---------------------------------------
+## Section B. SET UP KUBERNETES CLUSTER ON MAC
 
 Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step, in which core-02 is the master node and core-03 & core-04 are the worker nodes. 
 
@@ -122,7 +120,7 @@ The steps in this section are mainly sourced from https://coreos.com/kubernetes/
       K8S_SERVICE_IP=10.3.0.1 - The VIP (Virtual IP) address of the Kubernetes API Service.
       DNS_SERVICE_IP=10.3.0.10 - The VIP (Virtual IP) address of the cluster DNS service. 
 
-Step B1 Verify etcd Service status on CoreOS VMs & Troubleshooting when restart failing upon VM reboot
+### Step B1 Verify etcd Service status on CoreOS VMs & Troubleshooting when restart failing upon VM reboot
 
 Kubernetes uses etcd service, which is a distributed key-value database, to store all kinds of configurations and status information. When the 4 CoreOS VMs were created in Step A7, etcd service (etcd v3) has been set up as 1 VM running etcd server and 3 VMs as etcd proxy/client. 
 
@@ -243,7 +241,7 @@ Please note it's possible that the etcd-member service of proxy style on core-02
     core@core-02 /etc/systemd/system/etcd-member.service.d $ sudo vi 20-clct-etcd-member.conf 
     Add the line of "ExecStartPre=-/usr/bin/rkt rm -rf /var/lib/etcd/member" before the line of "ExecStart="
 
-Step B2 - Generate Kubernetes TLS Assets
+### Step B2 - Generate Kubernetes TLS Assets
 
 The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In this practice, however, we will use openssl tool to create our own certificates as below: 
         
@@ -331,7 +329,7 @@ Then we generate the Cluster Administrator Keypair, which will be used by the ku
     subject=/CN=kube-admin
     Getting CA Private Key
 
-Step B3 - Deploy K8S Master Node Components
+### Step B3 - Deploy K8S Master Node Components
 
 In this step, we deploy K8S master node on core-02. 
 
@@ -710,7 +708,7 @@ Now we can do the following basic health check about the K8S master components w
 
 At this point, we have successfully set up the K8S Master Node on core-02. Next we will set up Worker Node on core-03 & core-04. 
 
-Step B4 - Deploy K8S Worker Node Components
+### Step B4 - Deploy K8S Worker Node Components
 
 In this step, we deploy K8S Worker Node on both core-03 & core-4. The detailed steps are shown as be executed on core-03 and just need to logically repeat the same on core-04. 
 
@@ -937,7 +935,7 @@ Verify kubelet started and kube proxy also started.
 
 Repeat the above on another Worker Node -core-04. 
 
-Step B5 - Set Native Kubectl Client on MacPro
+### Step B5 - Set Native Kubectl Client on MacPro
 
 In this step, we will set up native Kubectl client on MacPro which connects to the API Server running on K8S Master Node core-01 to manage K8S cluster. 
 
