@@ -19,7 +19,7 @@ At the high level, there are three steps during the process:
     Section C. Set up the k8s example of guestbook on the newly created k8s cluster. 
 
 ------------------------------------------------
-A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
+Section A. SET UP 4 COREOS VMs WITH VAGRANT ON Mac
 ------------------------------------------------
 
 
@@ -109,7 +109,9 @@ In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
     Jul 23 13:19:36 core-01 systemd[1258]: Startup finished in 21ms.
     Jul 23 13:19:36 core-01 systemd[1]: Started User Manager for UID 500.
 
-B. SET UP KUBERNETES CLUSTER ON MAC
+---------------------------------------
+Section B. SET UP KUBERNETES CLUSTER ON MAC
+--------------------------------------
 
 Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step, in which core-02 is the master node and core-03 & core-04 are the worker nodes. 
 
