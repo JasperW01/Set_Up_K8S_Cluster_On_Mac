@@ -409,6 +409,9 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
             }
         }
     core@core-02 ~ $ sudo systemctl daemon-reload
+    core@core-02 ~ $ sudo systemctl stop docker
+    core@core-02 ~ $ sudo systemctl stop docker-tcp.socket
+    core@core-02 ~ $ sudo systemctl start docker-tcp.socket
     core@core-02 ~ $ sudo systemctl start docker
 
 Now we create kubelet unit on K8S master. The kubelet is the agent on each machine that starts and stops Pods and other machine-level tasks. The kubelet communicates with the API server (also running on the master nodes) with the TLS certificates we placed on disk earlier.
@@ -796,6 +799,9 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
             }
         }
     core@core-03 ~ $ sudo systemctl daemon-reload
+    core@core-03 ~ $ sudo systemctl stop docker
+    core@core-03 ~ $ sudo systemctl stop docker-tcp.socket
+    core@core-03 ~ $ sudo systemctl start docker-tcp.socket
     core@core-03 ~ $ sudo systemctl start docker
 
 Now we create kubelet unit on workder node. The following kubelet service unit file uses the following environment variables: 
@@ -915,7 +921,10 @@ Now we can start the Worker services.
     core@core-03 ~ $ sudo systemctl daemon-reload
     core@core-03 ~ $ sudo systemctl start flanneld
     core@core-03 ~ $ sudo systemctl start kubelet
-    core@core-03 ~ $ sudo systemctl start docker
+    core@core-03 ~ $ sudo systemctl enable flanneld
+    core@core-03 ~ $ sudo systemctl enable kubelet
+    Created symlink /etc/systemd/system/multi-user.target.wants/kubelet.service → /etc/systemd/system/kubelet.service.
+
 
 Verify kubelet started and kube proxy also started. 
 
@@ -965,12 +974,16 @@ Now we configure kubectl to connect to the target cluster using the following co
     MacBook-Pro:bin jaswang$ kubectl config use-context default-system
     Switched to context "default-system".
 
+
 Now check that the client is configured properly by using kubectl to inspect the cluster:
     
     MacBook-Pro:bin jaswang$ kubectl get nodes
     NAME           STATUS                     AGE       VERSION
     172.17.8.102   Ready,SchedulingDisabled   2d        v1.7.2+coreos.0
     172.17.8.103   Ready                      16h       v1.7.2+coreos.0
+    172.17.8.104   Ready                      12m       v1.7.2+coreos.0
+    
+    
 
 
 
