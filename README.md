@@ -56,7 +56,7 @@ In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreO
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
     (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2
-     Also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16")
+     Importantly also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16" to match with POD_NETWORK=10.2.0.0/16 later on)
     MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 
 ### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
