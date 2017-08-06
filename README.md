@@ -92,6 +92,20 @@ In this step, we will actually create and start the first CoreOS VMs using Vagra
     suspend the virtual machine. In either case, to restart it again,
     simply run `vagrant up`.
     
+Long onto newly created VM core-01 and verify etcd cluster is working (only 1 server member)
+
+    MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-01
+    Last login: Sun Aug  6 03:33:07 UTC 2017 from 10.0.2.2 on ssh
+    Container Linux by CoreOS beta (1465.3.0)
+    core@core-01 ~ $ etcdctl member list
+    e601a65b304e868f: name=core-01 peerURLs=http://172.17.8.101:2380 clientURLs=http://172.17.8.101:2379 isLeader=true
+    core@core-01 ~ $ etcdctl ls / --recursive
+    /flannel
+    /flannel/network
+    /flannel/network/config
+    /flannel/network/subnets
+    /flannel/network/subnets/10.2.19.0-24
+
 ### Step A7. Create & Boot Additional 3 VMs Via Vagrant
 
 In this step, we will create & boot additional 3 VMs via vagrant, which will become etcd proxies and will host the K8S cluster.
