@@ -290,6 +290,88 @@ Please note it's possible that the etcd-member service of proxy style on core-02
 
 ### Step B2 - Generate Kubernetes TLS Assets
 
+Each pod launched in the K8S cluster will be assigned an IP out of the range of POD_NETWORK=10.2.0.0/16. This network must be routable between all hosts in the cluster. In a default installation, the flannel overlay network will provide routing to this network. The flannel works as below on each K8S cluster node. 
+
+i. First Flanneld service on each K8S node (master and worker) binds to the VM Network Interface which is public IP routable amongst the K8S cluster VMs, in our case, it should be interface eth1 which has IP address of "172.17.8.10*". 
+
+ii. When Flanneld service on each K8S node first started, it will check the values stored in etcd to find an un-allocated C-class subnet within the range of POD_NETWORK=10.2.0.0/16, then allocate that C-class subnet to the flannel interface on that VM and write the C-class into etcd so Flanneld service on other node won't pick up duplicate C-class subnet. 
+
+iii. On each node, traffic to the any IP in the range of 10.2.0.0/16 will be routed by Flanneld service so that the PODs in the K8S cluster can communicate to each other.   
+
+As proper setting up for Flannel is the crucial for the K8S PODs deployed in the later sections to work correct, so we highlight this part in this dedicated Step B2 to make sure the Flanneld service work as the way described above. Even though the VM core-01 just runs etcd server and does not participate in the K8S cluster, we still configure its Flanneld purely for consistency purpose rather than technically required. 
+
+Fisrt on each VM, verify the flanneld drop-in file points to the IP range of 10.2.0.0/16 as specified in Step A3 above. 
+
+    core@core-02 ~ $ cd /etc/systemd/system/flanneld.service.d/
+    core@core-02 /etc/systemd/system/flanneld.service.d $ vi 50-network-config.conf 
+    (Verify the IP range is  10.2.0.0/16, if not just change it)
+    [Service]
+    ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16" }'
+
+Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
+
+    core@core-02 ~ $ sudo mkdir /etc/flannel
+    core@core-02 ~ $ sudo vi /etc/flannel/options.env
+    (Add the following two lines. Please note FLANNELD_IFACE needs to be set to the IP address of eth1 on each VM)
+    FLANNELD_IFACE=172.17.8.102
+    FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
+
+Next create the systemd drop-in for changing flanneld service setting. 
+
+    core@core-03 ~ $ sudo netstat -nap|grep flanneld
+    tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
+    udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
+    core@core-02 /etc/kubernetes/ssl $ cd /etc/systemd/system/flanneld.service.d/
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo vi 40-ExecStartPre-symlink.conf
+    (Add the following two lines)
+    [Service]
+    ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl daemon-reload
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart flanneld
+    core@core-02 ~ $ sudo netstat -nap|grep flanneld
+    (After the change, flanneld now is connecting to etcd server on core-01)
+    tcp        0      0 172.17.8.102:49880      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49876      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
+    tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
+    udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
+    
+Then after each VM's flanneld set up, we verify the C-class allocated to flannel virtual network interface on each VM which should be consistent with the values stored in etcd and pingable from each node. 
+
+    core@core-02 ~ $ ifconfig
+    ...
+    flannel0: flags=4305<UP,POINTOPOINT,RUNNING,NOARP,MULTICAST>  mtu 1472
+        inet 10.2.14.0  netmask 255.255.0.0  destination 10.2.14.0
+        inet6 fe80::f3db:e4b1:94e2:efbf  prefixlen 64  scopeid 0x20<link>
+        unspec 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  txqueuelen 500  (UNSPEC)
+        RX packets 6  bytes 504 (504.0 B)
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 17  bytes 1032 (1.0 KiB)
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    ...
+    core@core-02 ~ $ etcdctl ls / --recursive
+    /flannel
+    /flannel/network
+    /flannel/network/config
+    /flannel/network/subnets
+    /flannel/network/subnets/10.2.19.0-24 (Please note this one is initially created before we configure Flanneld and can be ignored)
+    /flannel/network/subnets/10.2.14.0-24
+    /flannel/network/subnets/10.2.40.0-24
+    /flannel/network/subnets/10.2.35.0-24
+    /flannel/network/subnets/10.2.2.0-24
+    core@core-02 ~ $ ping 10.2.14.0
+    core@core-02 ~ $ ping 10.2.40.0
+    core@core-02 ~ $ ping 10.2.35.0
+    core@core-02 ~ $ ping 10.2.2.0
+    core@core-02 ~ $ netstat -rn
+    Kernel IP routing table
+    Destination     Gateway         Genmask         Flags   MSS Window  irtt Iface
+    ...
+    10.2.0.0        0.0.0.0         255.255.0.0     U         0 0          0 flannel0
+    172.17.0.0      0.0.0.0         255.255.0.0     U         0 0          0 eth1
+
+### Step B2 - Generate Kubernetes TLS Assets
+
 The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In this practice, however, we will use openssl tool to create our own certificates as below: 
         
         Root CA Public & Private keys - ca.pem & ca-key.pam
@@ -388,34 +470,6 @@ First we prepare TSL certificates/assets on core-02
     core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver.pem .
     core@core-02 /etc/kubernetes/ssl $ sudo cp /home/core/share/certificates/apiserver-key.pem .
     core@core-02 /etc/kubernetes/ssl $ sudo chmod 600 *-key.pem
-
-Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
-
-    core@core-02 ~ $ sudo mkdir /etc/flannel
-    core@core-02 ~ $ sudo vi /etc/flannel/options.env
-    (Add the following two lines)
-    FLANNELD_IFACE=172.17.8.102
-    FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
-
-Next create the systemd drop-in for changing flanneld service setting. 
-
-    core@core-03 ~ $ sudo netstat -nap|grep flanneld
-    tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
-    tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
-    udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
-    core@core-02 /etc/kubernetes/ssl $ cd /etc/systemd/system/flanneld.service.d/
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo vi 40-ExecStartPre-symlink.conf
-    (Add the following two lines)
-    [Service]
-    ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl daemon-reload
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart flanneld
-    core@core-02 ~ $ sudo netstat -nap|grep flanneld
-    (After the change, flanneld now is connecting to etcd server on core-01)
-    tcp        0      0 172.17.8.102:49880      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
-    tcp        0      0 172.17.8.102:49876      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
-    tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
-    udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
 
 In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
 
