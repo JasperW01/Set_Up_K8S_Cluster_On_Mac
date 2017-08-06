@@ -74,7 +74,12 @@ By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
-    (replace "alpha" with "stable" and so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
+    (replace "alpha" with "stable" 
+    also change 
+    config.vm.box_url = "https://stable.release.core-os.net/amd64-usr/current/coreos_production_vagrant_virtualbox.json" 
+    to 
+    config.vm.box_url = "https://stable.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json"
+    so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
 
 ### Step A6. Create & Boot First VM to be etcd Server
 
