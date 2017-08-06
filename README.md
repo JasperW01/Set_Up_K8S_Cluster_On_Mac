@@ -68,18 +68,13 @@ In this step, we set up the number of VM to be created by Vagrant as 1 which wil
     MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
     (verify $num_instances=1)
 
-### Step A5. Choose to use CoreOS Stable channel instead of alpha channel
+### Step A5. Choose to use CoreOS Beta channel instead of alpha channel
 
-By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change it to Beta channel instead. Please note there is there is no vagrant_virtualbox setting avaible in CoreOS stable channel.  
+By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change it to Beta channel instead. 
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
-    (replace "alpha" with "stable" 
-    also change 
-    config.vm.box_url = "https://stable.release.core-os.net/amd64-usr/current/coreos_production_vagrant_virtualbox.json" 
-    to 
-    config.vm.box_url = "https://stable.release.core-os.net/amd64-usr/current/coreos_production_vagrant.json"
-    so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
+    (replace "alpha" with "beta". so we can have a more stable version.)
 
 ### Step A6. Create & Boot First VM to be etcd Server
 
@@ -92,9 +87,10 @@ In this step, we will actually create and start the first CoreOS VMs using Vagra
     Current machine states:
     core-01                   running (virtualbox)
 
-    This environment represents multiple VMs. The VMs are all listed
-    above with their current state. For more information about a specific
-    VM, run `vagrant status NAME`.
+    The VM is running. To stop this VM, you can run `vagrant halt` to
+    shut it down forcefully, or you can run `vagrant suspend` to simply
+    suspend the virtual machine. In either case, to restart it again,
+    simply run `vagrant up`.
     
 ### Step A7. Create & Boot Additional 3 VMs Via Vagrant
 
