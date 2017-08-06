@@ -55,7 +55,8 @@ In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreO
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
-    (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2)
+    (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2
+     Also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16")
     MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 
 ### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
@@ -67,13 +68,13 @@ In this step, we set up the number of VM to be created by Vagrant as 1 which wil
     MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
     (verify $num_instances=1)
 
-### Step A5. Choose to use CoreOS beta channel instead of alpha channel
+### Step A5. Choose to use CoreOS Stable channel instead of alpha channel
 
 By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change it to Beta channel instead. Please note there is there is no vagrant_virtualbox setting avaible in CoreOS stable channel.  
 
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi Vagrantfile
-    (Also replace "alpha" with "beta" so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
+    (replace "alpha" with "stable" and so we can have a more stable version. BTW, there is no vagrant_virtualbox avaible in stable channel)
 
 ### Step A6. Create & Boot First VM to be etcd Server
 
