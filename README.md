@@ -288,17 +288,19 @@ Please note it's possible that the etcd-member service of proxy style on core-02
     core@core-02 /etc/systemd/system/etcd-member.service.d $ sudo vi 20-clct-etcd-member.conf 
     Add the line of "ExecStartPre=-/usr/bin/rkt rm -rf /var/lib/etcd/member" before the line of "ExecStart="
 
-### Step B2 - Generate Kubernetes TLS Assets
+### Step B2 - Set Up Flanneld On Each K8S Node
 
-Each pod launched in the K8S cluster will be assigned an IP out of the range of POD_NETWORK=10.2.0.0/16. This network must be routable between all hosts in the cluster. In a default installation, the flannel overlay network will provide routing to this network. The flannel works as below on each K8S cluster node. 
+Each pod launched in the K8S cluster will be assigned an IP out of the range of POD_NETWORK=10.2.0.0/16. This network must be routable between all hosts in the cluster. In a default installation, the flannel overlay network will provide routing to this network. 
 
-i. First Flanneld service on each K8S node (master and worker) binds to the VM Network Interface which is public IP routable amongst the K8S cluster VMs, in our case, it should be interface eth1 which has IP address of "172.17.8.10*". 
+The flannel works as below on each K8S cluster node:
 
-ii. When Flanneld service on each K8S node first started, it will check the values stored in etcd to find an un-allocated C-class subnet within the range of POD_NETWORK=10.2.0.0/16, then allocate that C-class subnet to the flannel interface on that VM and write the C-class into etcd so Flanneld service on other node won't pick up duplicate C-class subnet. 
+    i. First Flanneld service on each K8S node (master and worker) binds to the VM Network Interface which is public IP routable amongst the K8S cluster VMs, in our case, it should be interface eth1 which has IP address of "172.17.8.10*". 
 
-iii. On each node, traffic to the any IP in the range of 10.2.0.0/16 will be routed by Flanneld service so that the PODs in the K8S cluster can communicate to each other.   
+    ii. When Flanneld service on each K8S node first started, it will check the values stored in etcd to find an un-allocated C-class subnet within the range of POD_NETWORK=10.2.0.0/16, then allocate that C-class subnet to the flannel interface on that VM and write the C-class into etcd so Flanneld service on other node won't pick up duplicate C-class subnet. 
 
-As proper setting up for Flannel is the crucial for the K8S PODs deployed in the later sections to work correct, so we highlight this part in this dedicated Step B2 to make sure the Flanneld service work as the way described above. Even though the VM core-01 just runs etcd server and does not participate in the K8S cluster, we still configure its Flanneld purely for consistency purpose rather than technically required. 
+    iii. On each node, traffic to the any IP in the range of 10.2.0.0/16 will be routed by Flanneld service so that the PODs in the K8S cluster can communicate to each other.   
+
+As the proper setting for Flanneld service is crucial for the K8S PODs to work correctly, so we highlight this part in this dedicated Step B2 to make sure the Flanneld service work as the way described above. By the way, even though the VM core-01 just runs etcd server and does not participate in the K8S cluster, we still configure its Flanneld purely for consistency purpose rather than technically required. 
 
 Fisrt on each VM, verify the flanneld drop-in file points to the IP range of 10.2.0.0/16 as specified in Step A3 above. 
 
@@ -316,9 +318,10 @@ Then we configure flannel to source its local configuration in /etc/flannel/opti
     FLANNELD_IFACE=172.17.8.102
     FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
 
-Next create the systemd drop-in for changing flanneld service setting. 
+Next create another systemd drop-in for enabling the flanneld service setting described above. 
 
     core@core-03 ~ $ sudo netstat -nap|grep flanneld
+    (Initially Flanneld does not connect to etcd on 172.17.8.101)
     tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
     tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
     udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
@@ -336,7 +339,7 @@ Next create the systemd drop-in for changing flanneld service setting.
     tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
     udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
     
-Then after each VM's flanneld set up, we verify the C-class allocated to flannel virtual network interface on each VM which should be consistent with the values stored in etcd and pingable from each node. 
+Then after each VM's flanneld set up by the above steps, we verify the C-class allocated to flannel virtual network interface on each VM which should be consistent with the values stored in etcd and also pingable from each node. 
 
     core@core-02 ~ $ ifconfig
     ...
