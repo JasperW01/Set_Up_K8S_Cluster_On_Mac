@@ -373,7 +373,7 @@ Then after each VM's flanneld set up by the above steps, we verify the C-class a
     10.2.0.0        0.0.0.0         255.255.0.0     U         0 0          0 flannel0
     172.17.0.0      0.0.0.0         255.255.0.0     U         0 0          0 eth1
 
-### Step B2 - Generate Kubernetes TLS Assets
+### Step B3 - Generate Kubernetes TLS Assets
 
 The Kubernetes API has various methods for validating clients. In this practice, we will configure the API server to use client certificate authentication. If we are in an enterprise which has an exising PKI infrastructure, we should follow the normal enterprise PKI procedure to create certificate requests and sign them with enterprise root certificate. In this practice, however, we will use openssl tool to create our own certificates as below: 
         
@@ -476,7 +476,7 @@ First we prepare TSL certificates/assets on core-02
 
 In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
 
-    a. use systend drop-in to configure flanneld running prior to Docker starting
+    a. use systend drop-in to configure Docker starts after flanneld
     b. create Docker CNI (Containter Network Interface) options file
     c. set up flannel CNI configuration file (Please note, we choose to use Flannel instead of Calico for container networking)
 
@@ -526,13 +526,13 @@ The following kubelet service unit file uses the following environment variables
 
     ${ADVERTISE_IP} = 172.17.8.102
     ${DNS_SERVICE_IP} = 10.3.0.10
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-02 ~ $ cd /etc/systemd/system
     core@core-02 /etc/systemd/system $ sudo vi kubelet.service
     (Add the following lines)
     [Service]
-    Environment=KUBELET_IMAGE_TAG=v1.7.2_coreos.0
+    Environment=KUBELET_IMAGE_TAG=v1.6.1_coreos.0
     Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
       --volume var-log,kind=host,source=/var/log \
       --mount volume=var-log,target=/var/log \
@@ -568,7 +568,7 @@ The following YAML file for api-service POD uses the following environment varia
     ${ETCD_ENDPOINTS} = http://172.17.8.101:2379 
     ${SERVICE_IP_RANGE} = 10.3.0.0/24
     ${ADVERTISE_IP} = 172.17.8.102
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-02 ~ $ sudo mkdir /etc/kubernetes/manifests
     core@core-02 ~ $ cd /etc/kubernetes/manifests
@@ -582,7 +582,7 @@ The following YAML file for api-service POD uses the following environment varia
       hostNetwork: true
       containers:
       - name: kube-apiserver
-        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        image: quay.io/coreos/hyperkube:v1.6.1_coreos.0
         command:
         - /hyperkube
         - apiserver
@@ -632,11 +632,10 @@ Similarly now we set up kube-proxy Pod. The proxy is responsible for directing t
 
 The following YAML file for kub-proxy POD uses the following environment variable;
 
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-02 ~ $ cd /etc/kubernetes/manifests
     core@core-02 /etc/kubernetes/manifests $ sudo vi kube-proxy.yaml
-    core@core-02 /etc/kubernetes/manifests $ cat kube-proxy.yaml 
     apiVersion: v1
     kind: Pod
     metadata:
@@ -646,7 +645,7 @@ The following YAML file for kub-proxy POD uses the following environment variabl
       hostNetwork: true
       containers:
       - name: kube-proxy
-        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        image: quay.io/coreos/hyperkube:v1.6.1_coreos.0
         command:
         - /hyperkube
         - proxy
@@ -664,7 +663,7 @@ The following YAML file for kub-proxy POD uses the following environment variabl
 
 Next we set up POD YMAL file for kube-controller-manager. The controller manager is responsible for reconciling any required actions based on changes to Replication Controllers.
 
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-02 ~ $ cd /etc/kubernetes/manifests
     core@core-02 /etc/kubernetes/manifests $ sudo vi kube-controller-manager.yaml
@@ -677,7 +676,7 @@ Next we set up POD YMAL file for kube-controller-manager. The controller manager
       hostNetwork: true
       containers:
       - name: kube-controller-manager
-        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        image: quay.io/coreos/hyperkube:v1.6.1_coreos.0
         command:
         - /hyperkube
         - controller-manager
@@ -712,10 +711,35 @@ Next we set up POD YMAL file for kube-controller-manager. The controller manager
 
 Now we set up POD YAML file for kube-scheduler. The scheduler monitors the API for unscheduled pods, finds them a machine to run on, and communicates the decision back to the API.
 
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-02 ~ $ cd /etc/kubernetes/manifests
     core@core-02 /etc/kubernetes/manifests $ sudo vi kube-scheduler.yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      name: kube-scheduler
+      namespace: kube-system
+    spec:
+      hostNetwork: true
+      containers:
+      - name: kube-scheduler
+        image: quay.io/coreos/hyperkube:v1.6.1_coreos.0
+        command:
+        - /hyperkube
+        - scheduler
+        - --master=http://127.0.0.1:8080
+        - --leader-elect=true
+        resources:
+          requests:
+            cpu: 100m
+        livenessProbe:
+          httpGet:
+            host: 127.0.0.1
+            path: /healthz
+            port: 10251
+          initialDelaySeconds: 15
+          timeoutSeconds: 15
 
 Now that we've defined all of our units and written our TLS certificates to disk, we're ready to start the master components.
 
@@ -723,7 +747,7 @@ First, we need to tell systemd that we've changed units on disk and it needs to 
 
     core@core-02 /etc/kubernetes/manifests $ sudo systemctl daemon-reload
 
-Earlier it was mentioned that flannel stores cluster-level configuration in etcd. Since we already started etcd in previuos steps, so now we need to configure our Pod network IP range and store it in etcd now. Since etcd was started earlier, 
+Now we configure flannel network. Earlier it was mentioned that flannel stores cluster-level configuration in etcd. Since we already started etcd in previuos steps, so now we need to configure our Pod network IP range and store it in etcd now. Since etcd was started earlier, 
 
     Environement variable values used here are: 
     ${POD_NETWORK}=10.2.0.0/16
@@ -734,8 +758,11 @@ Earlier it was mentioned that flannel stores cluster-level configuration in etcd
     /flannel/network
     /flannel/network/config
     /flannel/network/subnets
-    /flannel/network/subnets/10.1.14.0-24
-    /flannel/network/subnets/10.1.3.0-24
+    /flannel/network/subnets/10.2.14.0-24
+    /flannel/network/subnets/10.2.40.0-24
+    /flannel/network/subnets/10.2.35.0-24
+    /flannel/network/subnets/10.2.2.0-24
+    /flannel/network/subnets/10.2.19.0-24
     core@core-02 /etc/kubernetes/manifests $ curl -X PUT -d "value={\"Network\":\"10.2.0.0/16\",\"Backend\":{\"Type\":\"vxlan\"}}" "http://172.17.8.101:2379/v2/keys/coreos.com/network/config"
     {"action":"set","node":{"key":"/coreos.com/network/config","value":"{\"Network\":\"10.2.0.0/16\",\"Backend\":{\"Type\":\"vxlan\"}}","modifiedIndex":56,"createdIndex":56}}
     core@core-02 /etc/kubernetes/manifests $ etcdctl ls / --recursive
@@ -743,18 +770,22 @@ Earlier it was mentioned that flannel stores cluster-level configuration in etcd
     /flannel/network
     /flannel/network/config
     /flannel/network/subnets
-    /flannel/network/subnets/10.1.14.0-24
-    /flannel/network/subnets/10.1.3.0-24
+    /flannel/network/subnets/10.2.19.0-24
+    /flannel/network/subnets/10.2.14.0-24
+    /flannel/network/subnets/10.2.40.0-24
+    /flannel/network/subnets/10.2.35.0-24
+    /flannel/network/subnets/10.2.2.0-24
     /coreos.com
     /coreos.com/network
     /coreos.com/network/config
+
 
 After configuring flannel, we should restart it for our changes to take effect. Note that this will also restart the docker daemon and could impact running containers.
 
     core@core-02 ~ $ sudo systemctl stop flanneld
     core@core-02 ~ $ sudo systemctl start flanneld
     core@core-02 ~ $ sudo systemctl enable flanneld
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl start docker
+    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart docker
     
 Now that everything is configured, we can start the kubelet, which will also start the Pod manifests for the API server, the controller manager, proxy and scheduler.
 
@@ -786,12 +817,12 @@ Now we can do the following basic health check about the K8S master components w
     core@core-02 ~ $ curl http://127.0.0.1:8080/version
     {
       "major": "1",
-      "minor": "7",
-      "gitVersion": "v1.7.2+coreos.0",
-      "gitCommit": "c6574824e296e68a20d36f00e71fa01a81132b66",
+      "minor": "6",
+      "gitVersion": "v1.6.1+coreos.0",
+      "gitCommit": "9212f77ed8c169a0afa02e58dce87913c6387b3e",
       "gitTreeState": "clean",
-      "buildDate": "2017-07-24T23:28:22Z",
-      "goVersion": "go1.8.3",
+      "buildDate": "2017-04-04T00:32:53Z",
+      "goVersion": "go1.7.5",
       "compiler": "gc",
       "platform": "linux/amd64"
     }
@@ -835,34 +866,6 @@ Then create symlinks to the worker-specific certificate and key so that the rema
     core@core-03 ~ $ cd /etc/kubernetes/ssl/
     core@core-03 /etc/kubernetes/ssl $ sudo ln -s core-03-worker.pem worker.pem
     core@core-03 /etc/kubernetes/ssl $ sudo ln -s core-03-worker-key.pem worker-key.pem
-
-Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
-
-    core@core-03 ~ $ sudo mkdir /etc/flannel
-    core@core-03 ~ $ sudo vi /etc/flannel/options.env
-    (Add the following two lines)
-    FLANNELD_IFACE=172.17.8.103
-    FLANNELD_ETCD_ENDPOINTS=http://172.17.8.101:2379
-
-Next create the systemd drop-in for changing flanneld service setting. 
-
-    core@core-03 ~ $ sudo netstat -nap|grep flanneld
-    tcp        0      0 127.0.0.1:47748         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
-    tcp        0      0 127.0.0.1:47744         127.0.0.1:2379          ESTABLISHED 1036/flanneld       
-    udp        0      0 10.0.2.14:8285          0.0.0.0:*                           1036/flanneld         
-    core@core-02 /etc/kubernetes/ssl $ cd /etc/systemd/system/flanneld.service.d/
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo vi 40-ExecStartPre-symlink.conf
-    (Add the following two lines)
-    [Service]
-    ExecStartPre=/usr/bin/ln -sf /etc/flannel/options.env /run/flannel/options.env
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl daemon-reload
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart flanneld
-    core@core-02 ~ $ sudo netstat -nap|grep flanneld
-    (After the change, flanneld now is connecting to etcd server on core-01)
-    tcp        0      0 172.17.8.102:49880      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
-    tcp        0      0 172.17.8.102:49876      172.17.8.101:2379       ESTABLISHED 2232/flanneld       
-    tcp        0      0 172.17.8.102:49878      172.17.8.101:2379       ESTABLISHED 2232/flanneld
-    udp        0      0 172.17.8.102:8285       0.0.0.0:*                           2232/flanneld
 
 In order for flannel to manage the pod network in the cluster, Docker needs to be configured to use flannel. So we need to do three things here: 
 
@@ -913,13 +916,13 @@ Now we create kubelet unit on workder node. The following kubelet service unit f
     ${MASTER_HOST} = 172.17.8.102
     ${ADVERTISE_IP} = 172.17.8.103
     ${DNS_SERVICE_IP} = 10.3.0.10
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-03 ~ $ cd /etc/systemd/system
     core@core-03 /etc/systemd/system $ sudo vi kubelet.service
     (Add the following lines)
     [Service]
-    Environment=KUBELET_IMAGE_TAG=v1.7.2_coreos.0
+    Environment=KUBELET_IMAGE_TAG=v1.6.1_coreos.0
     Environment="RKT_RUN_ARGS=--uuid-file-save=/var/run/kubelet-pod.uuid \
       --volume dns,kind=host,source=/etc/resolv.conf \
       --mount volume=dns,target=/etc/resolv.conf \
@@ -954,12 +957,11 @@ Now we set up kube-proxy Pod YAML file.
 The following YAML file for kub-proxy POD uses the following environment variable;
 
     ${MASTER_HOST} = 172.17.8.102
-    ${K8S_VER} =  v1.7.2_coreos.0
+    ${K8S_VER} =  v1.6.1_coreos.0
     
     core@core-03 ~ $ sudo mkdir /etc/kubernetes/manifests
     core@core-02 ~ $ cd /etc/kubernetes/manifests
     core@core-02 /etc/kubernetes/manifests $ sudo vi kube-proxy.yaml
-    core@core-02 /etc/kubernetes/manifests $ cat kube-proxy.yaml 
     apiVersion: v1
     kind: Pod
     metadata:
@@ -969,7 +971,7 @@ The following YAML file for kub-proxy POD uses the following environment variabl
       hostNetwork: true
       containers:
       - name: kube-proxy
-        image: quay.io/coreos/hyperkube:v1.7.2_coreos.0
+        image: quay.io/coreos/hyperkube:v1.6.1_coreos.0
         command:
         - /hyperkube
         - proxy
@@ -1023,7 +1025,6 @@ In order to facilitate secure communication between Kubernetes components, kubec
 Now we can start the Worker services.
 
     core@core-03 ~ $ sudo systemctl daemon-reload
-    core@core-03 ~ $ sudo systemctl start flanneld
     core@core-03 ~ $ sudo systemctl start kubelet
     core@core-03 ~ $ sudo systemctl enable flanneld
     core@core-03 ~ $ sudo systemctl enable kubelet
@@ -1043,6 +1044,7 @@ Verify kubelet started and kube proxy also started.
         Tasks: 13 (limit: 32768)
        Memory: 157.0M
     ...
+    (Please note it takes while for kubelet to download ACI before it's fully started)
     core@core-03 ~ $ curl -s localhost:10255/pods | jq -r '.items[].metadata.name'
     kube-proxy-172.17.8.103
     core@core-03 ~ $ docker ps
@@ -1058,7 +1060,7 @@ In this step, we will set up native Kubectl client on MacPro which connects to t
 
 In the terminal of the local MacPro, execute the following steps to download kubectl binary for MacOS and set it up. 
 
-    $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.7.2/bin/darwin/amd64/kubectl
+    $ curl -O https://storage.googleapis.com/kubernetes-release/release/v1.6.1/bin/darwin/amd64/kubectl
     $ chmod +x kubectl
     $ mv kubectl /usr/local/bin/kubectl
 
@@ -1096,6 +1098,15 @@ Now check that the client is configured properly by using kubectl to inspect the
     kube-system   kube-scheduler-172.17.8.102            1/1       Running   8          3d
     
 ### Step B6 - Deploy Add-ons into K8S Cluster
+
+https://github.com/kubernetes/dashboard
+
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f https://git.io/kube-dashboard
+serviceaccount "kubernetes-dashboard" created
+clusterrolebinding "kubernetes-dashboard" created
+deployment "kubernetes-dashboard" created
+service "kubernetes-dashboard" created
+
 
 In this step, we will deploy several add-ons into K8S cluster, including DSN Add-on and Kube Dashboard add-on.
 
