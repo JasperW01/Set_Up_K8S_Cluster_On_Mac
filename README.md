@@ -56,7 +56,16 @@ In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreO
     MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
     MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
     (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2
-     Importantly also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16" to match with POD_NETWORK=10.2.0.0/16 later on)
+     Importantly also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16" to match with POD_NETWORK=10.2.0.0/16 later on
+     and also the backend type is vxlan as shown below;
+     
+    - name: flanneld.service
+      dropins:
+        - name: 50-network-config.conf
+          contents: |
+            [Service]
+            ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16", "Backend":{"Type":"vxlan"}  }'
+     )
     MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
 
 ### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
@@ -306,9 +315,13 @@ Fisrt on each VM, verify the flanneld drop-in file points to the IP range of 10.
 
     core@core-02 ~ $ cd /etc/systemd/system/flanneld.service.d/
     core@core-02 /etc/systemd/system/flanneld.service.d $ vi 50-network-config.conf 
-    (Verify the IP range is  10.2.0.0/16, if not just change it)
+    (Verify the IP range & Backend settings are as below, if not just change it)
     [Service]
-    ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16" }'
+    ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16" , "Backend":{"Type":"vxlan"} }'
+    core@core-02 ~ $ ps -ef|grep flanneld
+    (Verify flanneld process has "--ectd-prefix=/flannel/network" means it uses configuration under etcd directory of /flannel/network instead of the default "/coreos.com/network"
+    root       780     1  0 12:07 ?        00:00:00 /opt/bin/flanneld --ip-masq=true --etcd-prefix=/flannel/network
+
 
 Then we configure flannel to source its local configuration in /etc/flannel/options.env and cluster-level configuration in etcd. 
 
@@ -461,7 +474,7 @@ Then we generate the Cluster Administrator Keypair, which will be used by the ku
     subject=/CN=kube-admin
     Getting CA Private Key
 
-### Step B3 - Deploy K8S Master Node Components
+### Step B4 - Deploy K8S Master Node Components
 
 In this step, we deploy K8S master node on core-02. 
 
@@ -746,46 +759,6 @@ Now that we've defined all of our units and written our TLS certificates to disk
 First, we need to tell systemd that we've changed units on disk and it needs to rescan & reload everything:
 
     core@core-02 /etc/kubernetes/manifests $ sudo systemctl daemon-reload
-
-Now we configure flannel network. Earlier it was mentioned that flannel stores cluster-level configuration in etcd. Since we already started etcd in previuos steps, so now we need to configure our Pod network IP range and store it in etcd now. Since etcd was started earlier, 
-
-    Environement variable values used here are: 
-    ${POD_NETWORK}=10.2.0.0/16
-    ${ETCD_ENDPOINTS} = http://172.17.8.101:2379 
-     
-    core@core-02 /etc/kubernetes/manifests $ etcdctl ls / --recursive
-    /flannel
-    /flannel/network
-    /flannel/network/config
-    /flannel/network/subnets
-    /flannel/network/subnets/10.2.14.0-24
-    /flannel/network/subnets/10.2.40.0-24
-    /flannel/network/subnets/10.2.35.0-24
-    /flannel/network/subnets/10.2.2.0-24
-    /flannel/network/subnets/10.2.19.0-24
-    core@core-02 /etc/kubernetes/manifests $ curl -X PUT -d "value={\"Network\":\"10.2.0.0/16\",\"Backend\":{\"Type\":\"vxlan\"}}" "http://172.17.8.101:2379/v2/keys/coreos.com/network/config"
-    {"action":"set","node":{"key":"/coreos.com/network/config","value":"{\"Network\":\"10.2.0.0/16\",\"Backend\":{\"Type\":\"vxlan\"}}","modifiedIndex":56,"createdIndex":56}}
-    core@core-02 /etc/kubernetes/manifests $ etcdctl ls / --recursive
-    /flannel
-    /flannel/network
-    /flannel/network/config
-    /flannel/network/subnets
-    /flannel/network/subnets/10.2.19.0-24
-    /flannel/network/subnets/10.2.14.0-24
-    /flannel/network/subnets/10.2.40.0-24
-    /flannel/network/subnets/10.2.35.0-24
-    /flannel/network/subnets/10.2.2.0-24
-    /coreos.com
-    /coreos.com/network
-    /coreos.com/network/config
-
-
-After configuring flannel, we should restart it for our changes to take effect. Note that this will also restart the docker daemon and could impact running containers.
-
-    core@core-02 ~ $ sudo systemctl stop flanneld
-    core@core-02 ~ $ sudo systemctl start flanneld
-    core@core-02 ~ $ sudo systemctl enable flanneld
-    core@core-02 /etc/systemd/system/flanneld.service.d $ sudo systemctl restart docker
     
 Now that everything is configured, we can start the kubelet, which will also start the Pod manifests for the API server, the controller manager, proxy and scheduler.
 
@@ -848,7 +821,7 @@ Now we can do the following basic health check about the K8S master components w
 
 At this point, we have successfully set up the K8S Master Node on core-02. Next we will set up Worker Node on core-03 & core-04. 
 
-### Step B4 - Deploy K8S Worker Node Components
+### Step B5 - Deploy K8S Worker Node Components
 
 In this step, we deploy K8S Worker Node on both core-03 & core-4. The detailed steps are shown as be executed on core-03 and just need to logically repeat the same on core-04. 
 
@@ -975,7 +948,7 @@ The following YAML file for kub-proxy POD uses the following environment variabl
         command:
         - /hyperkube
         - proxy
-        - --master=172.17.8.102
+        - --master=https://172.17.8.102
         - --kubeconfig=/etc/kubernetes/worker-kubeconfig.yaml
         securityContext:
           privileged: true
@@ -1054,7 +1027,7 @@ Verify kubelet started and kube proxy also started.
 
 Repeat the above on another Worker Node -core-04. 
 
-### Step B5 - Set Native Kubectl Client on MacPro
+### Step B6 - Set Native Kubectl Client on MacPro
 
 In this step, we will set up native Kubectl client on MacPro which connects to the API Server running on K8S Master Node core-01 to manage K8S cluster. 
 
@@ -1096,7 +1069,21 @@ Now check that the client is configured properly by using kubectl to inspect the
     kube-system   kube-proxy-172.17.8.103                1/1       Running   1          1d
     kube-system   kube-proxy-172.17.8.104                1/1       Running   1          8h
     kube-system   kube-scheduler-172.17.8.102            1/1       Running   8          3d
-    
+
+Run the following command against each pod above and make sure each pod is working fine. 
+
+    MacBook-Pro:coreos-vagrant jaswang$ kubectl logs kube-proxy-172.17.8.102 --namespace=kube-system
+    I0810 12:57:14.474604       1 server.go:225] Using iptables Proxier.
+    W0810 12:57:14.475453       1 server.go:469] Failed to retrieve node info: Get http://127.0.0.1:8080/api/v1/nodes/core-02: dial tcp     127.0.0.1:8080: getsockopt: connection refused
+    W0810 12:57:14.475537       1 proxier.go:304] invalid nodeIP, initializing kube-proxy with 127.0.0.1 as nodeIP
+    I0810 12:57:14.475564       1 server.go:249] Tearing down userspace rules.
+    E0810 12:57:14.496793       1 reflector.go:201] k8s.io/kubernetes/pkg/proxy/config/api.go:49: Failed to list *api.Endpoints: Get http://127.0.0.1:8080/api/v1/endpoints?resourceVersion=0: dial tcp 127.0.0.1:8080: getsockopt: connection refused
+    E0810 12:57:14.497234       1 reflector.go:201] k8s.io/kubernetes/pkg/proxy/config/api.go:46: Failed to list *api.Service: Get http://127.0.0.1:8080/api/v1/services?resourceVersion=0: dial tcp 127.0.0.1:8080: getsockopt: connection refused
+    I0810 12:57:15.595380       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_max' to 131072
+    I0810 12:57:15.595725       1 conntrack.go:66] Setting conntrack hashsize to 32768
+    I0810 12:57:15.595841       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_established' to 86400
+    I0810 12:57:15.595878       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_close_wait' to 3600
+
 ### Step B6 - Deploy Add-ons into K8S Cluster
 
 https://github.com/kubernetes/dashboard
