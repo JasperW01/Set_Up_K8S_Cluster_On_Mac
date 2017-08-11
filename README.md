@@ -1084,7 +1084,7 @@ Run the following command against each pod above and make sure each pod is worki
     I0810 12:57:15.595841       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_established' to 86400
     I0810 12:57:15.595878       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_close_wait' to 3600
 
-### Step B6 - Deploy Add-ons into K8S Cluster
+### Step B7 - Deploy Add-ons into K8S Cluster
 
 https://github.com/kubernetes/dashboard
 
@@ -1236,7 +1236,15 @@ First we create the file of dns-addon.yml on the local MacPro laptop and then us
               protocol: TCP
           dnsPolicy: Default
 
-    
+Now verify all 3 containers of the kube-dns POD are started successfully. 
+
+    MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods --all-namespaces
+    NAMESPACE     NAME                                   READY     STATUS    RESTARTS   AGE
+    ...
+    kube-system   kube-dns-v20-xnw3r                     3/3       Running   0          14s
+    ...
+
+
 
 
 
