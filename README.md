@@ -556,7 +556,7 @@ The following kubelet service unit file uses the following environment variables
       --api-servers=http://127.0.0.1:8080 \
       --register-schedulable=false \
       --cni-conf-dir=/etc/kubernetes/cni/net.d \
-      --network-plugin=${NETWORK_PLUGIN} \
+      --network-plugin=cni \
       --container-runtime=docker \
       --allow-privileged=true \
       --pod-manifest-path=/etc/kubernetes/manifests \
@@ -905,7 +905,7 @@ Now we create kubelet unit on workder node. The following kubelet service unit f
     ExecStart=/usr/lib/coreos/kubelet-wrapper \
       --api-servers=https://172.17.8.102 \
       --cni-conf-dir=/etc/kubernetes/cni/net.d \
-      --network-plugin=${NETWORK_PLUGIN} \
+      --network-plugin=cni \
       --container-runtime=docker \
       --register-node=true \
       --allow-privileged=true \
@@ -1082,20 +1082,9 @@ Run the following command against each pod above and make sure each pod is worki
     I0810 12:57:15.595841       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_established' to 86400
     I0810 12:57:15.595878       1 conntrack.go:81] Set sysctl 'net/netfilter/nf_conntrack_tcp_timeout_close_wait' to 3600
 
-### Step B7 - Deploy Add-ons into K8S Cluster
+### Step B7 - Deploy Kube-DNS into K8S Cluster
 
-https://github.com/kubernetes/dashboard
-
-MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f https://git.io/kube-dashboard
-serviceaccount "kubernetes-dashboard" created
-clusterrolebinding "kubernetes-dashboard" created
-deployment "kubernetes-dashboard" created
-service "kubernetes-dashboard" created
-
-
-In this step, we will deploy several add-ons into K8S cluster, including DSN Add-on and Kube Dashboard add-on.
-
-Add-ons are built on the same Kubernetes components as user-submitted jobs — Pods, Replication Controllers and Services. We're going to install the DNS add-on with kubectl. The DNS add-on allows your services to have a DNS name in addition to an IP address. This is helpful for simplified service discovery between applications. 
+In this step, we will deploy Kubernetes DNS service into K8S cluster. The Kube-DNS add-on allows your services to have a DNS name in addition to an IP address. This is helpful for simplified service discovery between applications. 
 
 First we create the file of dns-addon.yml on the local MacPro laptop and then use kubectl client on MacPro to deploy it into K8S cluster. The YAML definition is based on the upstream DNS addon in the Kubernetes addon folder.
 
@@ -1295,6 +1284,48 @@ NAMESPACE     NAME                                   READY     STATUS    RESTART
 ...
 kube-system   kube-dns-v20-xnw3r                     3/3       Running   0          14s
 ...
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get deployment --all-namespaces
+NAMESPACE     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+kube-system   kube-dns   1         1         1            1           40m
+```
+Now we test the Kubernets DNS is working, first we create the busybox POD which will be used in the DSN test. 
+```
+MacBook-Pro:coreos-vagrant jaswang$ vi busybox.yaml
+(add the following lines into this new file)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+  namespace: default
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "3600"
+    imagePullPolicy: IfNotPresent
+    name: busybox
+  restartPolicy: Always
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f ./busybox.yaml 
+pod "busybox" created
+```
+Then we use busybox POD to test the Kube-DNS can resolve the K8S Services to K8S Service Cluster IP address. First we check out the current existing services. 
+```
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get services --all-namespaces
+NAMESPACE     NAME         CLUSTER-IP   EXTERNAL-IP   PORT(S)         AGE
+default       kubernetes   10.3.0.1     <none>        443/TCP         5d
+kube-system   kube-dns     10.3.0.10    <none>        53/UDP,53/TCP   45m
+```
+So currently the cluster has two K8S Services as above. So their Service DNS names are kubernetes.default and kube-dns.kube-system respectively and the IP mapping would be:
+
+    kubernetes.default (or kubernetes.default.svc.cluster.local) ==> 10.3.0.1
+    kube-dns.kube-system (or kube-dsn.kube-system.svc.cluster.local) ==> 10.3.0.10
+    
+Now we execute the DNS command to verify the kube-DNS servere
+```
+
+    
+
 
 
 
