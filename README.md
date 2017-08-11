@@ -32,51 +32,49 @@ In our setting up, we will have 4 VMs and 1 of them will be running etcd server 
 ### Step A1. Clone the CoreOS-Vagrant repository from GitHub
 
 On the MacPro laptop, clone the Vagrant + CoreOS repository released by CoreOS. 
-
-    MacBook-Pro:~ jaswang$ mkdir k8s
-    MacBook-Pro:~ jaswang$ cd k8s/
-    MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
-
+```
+MacBook-Pro:~ jaswang$ mkdir k8s
+MacBook-Pro:~ jaswang$ cd k8s/
+MacBook-Pro:k8s jaswang$ git clone https://github.com/coreos/coreos-vagrant.git
+```
 ### Step A2. Request a new etcd discovery token
 
 In our setting up, we will have 4 VMs and 1 of them will be running etcd server and the other three will be etcd clients. So we use the URL of  https://discovery.etcd.io/new?size=1 (please note size is 1 here) to request a new etcd discovery token and the token will be applied to all 4 VMs to be created. As a result, 1 VM will be dedicated to etcd server and the other 3 VMs will be etcd clients and installed with Kubernetes components. As per k8s best practice, it's strongly recommanded to have VMs dedicated to etcd cluster separate to the VMs used in K8S cluster. In our case, the etcd cluster is composed of 1 VM only to save resources of the Mac. 
 
 Please note in the latest CoreOS Container Linux image, it's using etcd V3 (i.e. etcd-member.service) instead of etcd v2 (i.e. etcd2.service). 
-
-    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-    MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
-    ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
-
+```
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+MacBook-Pro:cab3eed2aa1a29c6bab1714a49b87dbb2oreos-vagrant jaswang$ curl https://discovery.etcd.io/new\?size\=1
+ab3eed2aa1a29c6bab1714a49b87dbb2 (record this string for later use)
+```
 ### Step A3. Update the human readiable cl.conf file and translate to CoreOS ignition file 
 
 In the latest version of CoreOS, the traditional cloud-config to bootstrap CoreOS has been superceded by CoreOS Ignition. In particular, in the repo downloaded in Step 1, by default it's using Vagrant with VirtualBox and in particular it's expecting a Ignition file of config.ign file instead of a cloud-config file of user-data. So as per CoreOS common practice, we need to update the cl.conf in the cloned repository with the etcd discovery token retrieved in Step 2 above and use CoreOS config transpiler (i.e. ct tool) to translate cl.conf file to CoreOS ignition file of config.ign. 
+```
+Download Mac binary of CoreOS config transpiler ct-<version>-x86_64-apple-darwin from https://github.com/coreos/container-linux-config-transpiler/releases. Copy it to /user/local/bin, change its name to "ct" and set it to be executable. 
 
-    Download Mac binary of CoreOS config transpiler ct-<version>-x86_64-apple-darwin from https://github.com/coreos/container-linux-config-transpiler/releases. Copy it to /user/local/bin, change its name to "ct" and set it to be executable. 
-
-    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-    MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
-    (Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2
-     Importantly also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16" to match with POD_NETWORK=10.2.0.0/16 later on
-     and also the backend type is vxlan as shown below;
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ vi cl.conf
+(Replace <token> in the line of discovery with the etcd discovery token retrieved in Step 2. Importantly also change flannel network range from "10.1.0.0/16" to "10.2.0.0/16" to match with POD_NETWORK=10.2.0.0/16 later on and also the backend type is vxlan as shown below;
      
-    - name: flanneld.service
-      dropins:
-        - name: 50-network-config.conf
-          contents: |
-            [Service]
-            ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16", "Backend":{"Type":"vxlan"}  }'
-     )
-    MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
-
+- name: flanneld.service
+  dropins:
+    - name: 50-network-config.conf
+      contents: |
+        [Service]
+        ExecStartPre=/usr/bin/etcdctl set /flannel/network/config '{ "Network": "10.2.0.0/16", "Backend":{"Type":"vxlan"}  }'
+)
+MacBook-Pro:coreos-vagrant jaswang$ ct --platform=vagrant-virtualbox < cl.conf > config.ign
+```
 ### Step A4. Set VM number and enable Docker Port Forwarding in config.rb file
 
 In this step, we set up the number of VM to be created by Vagrant as 1 which will be the first VM to be created and will become the one-node etcd cluster.
-
-    MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
-    MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
-    MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
-    (verify $num_instances=1)
-
+```
+MacBook-Pro:~ jaswang$ cd ~/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ mv config.rb.sample config.rb
+MacBook-Pro:coreos-vagrant jaswang$ vi config.rb
+(verify $num_instances=1)
+```
 ### Step A5. Choose to use CoreOS Beta channel instead of alpha channel
 
 By default, Vagrant pulls CoreOS image from Alpha Channel. To be safe, we change it to Beta channel instead. 
@@ -1101,148 +1099,202 @@ Add-ons are built on the same Kubernetes components as user-submitted jobs — P
 
 First we create the file of dns-addon.yml on the local MacPro laptop and then use kubectl client on MacPro to deploy it into K8S cluster. The YAML definition is based on the upstream DNS addon in the Kubernetes addon folder.
 
-    The file below use the following environment variable
+The file below use the following environment variable
     
     ${DNS_SERVICE_IP}=10.3.0.10
-    
-    MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
-    MacBook-Pro:coreos-vagrant jaswang$ mkdir add-ons
-    MacBook-Pro:coreos-vagrant jaswang$ cd add-ons/
-    MacBook-Pro:add-ons jaswang$ vi dns-addon.yml
-    (Add the following lines into this new file)
-    apiVersion: v1
-    kind: Service
+    ${DOMAIN_NAME}=cluster.local
+```
+MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ mkdir add-ons
+MacBook-Pro:coreos-vagrant jaswang$ cd add-ons/
+MacBook-Pro:add-ons jaswang$ vi dns-addon.yml
+(Add the following lines into this new file)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+    kubernetes.io/name: "KubeDNS"
+spec:
+  selector:
+    k8s-app: kube-dns
+  clusterIP: 10.3.0.10
+  ports:
+  - name: dns
+    port: 53
+    protocol: UDP
+  - name: dns-tcp
+    port: 53
+    protocol: TCP
+
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: kube-dns
+  namespace: kube-system
+  labels:
+    k8s-app: kube-dns
+    kubernetes.io/cluster-service: "true"
+spec:
+  # replicas: not specified here:
+  # 1. In order to make Addon Manager do not reconcile this replicas parameter.
+  # 2. Default is 1.
+  # 3. Will be tuned in real time if DNS horizontal auto-scaling is turned on.
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 10%
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      k8s-app: kube-dns
+  template:
     metadata:
-      name: kube-dns
-      namespace: kube-system
       labels:
         k8s-app: kube-dns
-        kubernetes.io/cluster-service: "true"
-        kubernetes.io/name: "KubeDNS"
+      annotations:
+        scheduler.alpha.kubernetes.io/critical-pod: ''
+        scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
     spec:
-      selector:
-        k8s-app: kube-dns
-      clusterIP: 10.3.0.10
-      ports:
-      - name: dns
-        port: 53
-        protocol: UDP
-      - name: dns-tcp
-        port: 53
-        protocol: TCP
+      containers:
+      - name: kubedns
+        image: gcr.io/google_containers/kubedns-amd64:1.9
+        resources:
+          # TODO: Set memory limits when we've profiled the container for large
+          # clusters, then set request = limit to keep this container in
+          # guaranteed class. Currently, this container falls into the
+          # "burstable" category so the kubelet doesn't backoff from restarting it.
+          limits:
+            memory: 170Mi
+          requests:
+            cpu: 100m
+            memory: 70Mi
+        livenessProbe:
+          httpGet:
+            path: /healthz-kubedns
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: 8081
+            scheme: HTTP
+          # we poll on pod startup for the Kubernetes master service and
+          # only setup the /readiness HTTP server once that's available.
+          initialDelaySeconds: 3
+          timeoutSeconds: 5
+        args:
+        - --domain=cluster.local.
+        - --dns-port=10053
+        - --config-map=kube-dns
+        # This should be set to v=2 only after the new image (cut from 1.5) has
+        # been released, otherwise we will flood the logs.
+        - --v=0
+        env:
+        - name: PROMETHEUS_PORT
+          value: "10055"
+        ports:
+        - containerPort: 10053
+          name: dns-local
+          protocol: UDP
+        - containerPort: 10053
+          name: dns-tcp-local
+          protocol: TCP
+        - containerPort: 10055
+          name: metrics
+          protocol: TCP
+      - name: dnsmasq
+        image: gcr.io/google_containers/kube-dnsmasq-amd64:1.4
+        livenessProbe:
+          httpGet:
+            path: /healthz-dnsmasq
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        args:
+        - --cache-size=1000
+        - --no-resolv
+        - --server=127.0.0.1#10053
+        - --log-facility=-
+        ports:
+        - containerPort: 53
+          name: dns
+          protocol: UDP
+        - containerPort: 53
+          name: dns-tcp
+          protocol: TCP
+        # see: https://github.com/kubernetes/kubernetes/issues/29055 for details
+        resources:
+          requests:
+            cpu: 150m
+            memory: 10Mi
+      - name: dnsmasq-metrics
+        image: gcr.io/google_containers/dnsmasq-metrics-amd64:1.0
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 10054
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        args:
+        - --v=2
+        - --logtostderr
+        ports:
+        - containerPort: 10054
+          name: metrics
+          protocol: TCP
+        resources:
+          requests:
+            memory: 10Mi
+      - name: healthz
+        image: gcr.io/google_containers/exechealthz-amd64:1.2
+        resources:
+          limits:
+            memory: 50Mi
+          requests:
+            cpu: 10m
+            # Note that this container shouldn't really need 50Mi of memory. The
+            # limits are set higher than expected pending investigation on #29688.
+            # The extra memory was stolen from the kubedns container to keep the
+            # net memory requested by the pod constant.
+            memory: 50Mi
+        args:
+        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null
+        - --url=/healthz-dnsmasq
+        - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
+        - --url=/healthz-kubedns
+        - --port=8080
+        - --quiet
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+      dnsPolicy: Default # Don't use cluster DNS.
+```
 
+Now verify all 4 containers of the kube-dns POD are started successfully and the deployment is in the desired state 
 
-    ---
-
-
-    apiVersion: v1
-    kind: ReplicationController
-    metadata:
-      name: kube-dns-v20
-      namespace: kube-system
-      labels:
-        k8s-app: kube-dns
-        version: v20
-        kubernetes.io/cluster-service: "true"
-    spec:
-      replicas: 1
-      selector:
-        k8s-app: kube-dns
-        version: v20
-      template:
-        metadata:
-          labels:
-            k8s-app: kube-dns
-            version: v20
-          annotations:
-            scheduler.alpha.kubernetes.io/critical-pod: ''
-            scheduler.alpha.kubernetes.io/tolerations: '[{"key":"CriticalAddonsOnly", "operator":"Exists"}]'
-        spec:
-          containers:
-          - name: kubedns
-            image: gcr.io/google_containers/kubedns-amd64:1.9
-            resources:
-              limits:
-                memory: 170Mi
-              requests:
-                cpu: 100m
-                memory: 70Mi
-            livenessProbe:
-              httpGet:
-                path: /healthz-kubedns
-                port: 8080
-                scheme: HTTP
-              initialDelaySeconds: 60
-              timeoutSeconds: 5
-              successThreshold: 1
-              failureThreshold: 5
-            readinessProbe:
-              httpGet:
-                path: /readiness
-                port: 8081
-                scheme: HTTP
-              initialDelaySeconds: 3
-              timeoutSeconds: 5
-            args:
-            - --domain=cluster.local.
-            - --dns-port=10053
-            ports:
-            - containerPort: 10053
-              name: dns-local
-              protocol: UDP
-            - containerPort: 10053
-              name: dns-tcp-local
-              protocol: TCP
-          - name: dnsmasq
-            image: gcr.io/google_containers/kube-dnsmasq-amd64:1.4.1
-            livenessProbe:
-              httpGet:
-                path: /healthz-dnsmasq
-                port: 8080
-                scheme: HTTP
-              initialDelaySeconds: 60
-              timeoutSeconds: 5
-              successThreshold: 1
-              failureThreshold: 5
-            args:
-            - --cache-size=1000
-            - --no-resolv
-            - --server=127.0.0.1#10053
-            - --log-facility=-
-            ports:
-            - containerPort: 53
-              name: dns
-              protocol: UDP
-            - containerPort: 53
-              name: dns-tcp
-              protocol: TCP
-          - name: healthz
-            image: gcr.io/google_containers/exechealthz-amd64:v1.2.0
-            resources:
-              limits:
-                memory: 50Mi
-              requests:
-                cpu: 10m
-                memory: 50Mi
-            args:
-            - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1 >/dev/null
-            - --url=/healthz-dnsmasq
-            - --cmd=nslookup kubernetes.default.svc.cluster.local 127.0.0.1:10053 >/dev/null
-            - --url=/healthz-kubedns
-            - --port=8080
-            - --quiet
-            ports:
-            - containerPort: 8080
-              protocol: TCP
-          dnsPolicy: Default
-
-Now verify all 3 containers of the kube-dns POD are started successfully. 
-
-    MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods --all-namespaces
-    NAMESPACE     NAME                                   READY     STATUS    RESTARTS   AGE
-    ...
-    kube-system   kube-dns-v20-xnw3r                     3/3       Running   0          14s
-    ...
+```
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods --all-namespaces
+NAMESPACE     NAME                                   READY     STATUS    RESTARTS   AGE
+...
+kube-system   kube-dns-v20-xnw3r                     3/3       Running   0          14s
+...
 
 
 
