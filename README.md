@@ -501,28 +501,28 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     core@core-02 ~ $ cd /etc/systemd/system/docker.service.d
     core@core-02 /etc/systemd/system/docker.service.d $ sudo vi 40-flannel.conf
     (Add the following lines)
-        [Unit]
-        Requires=flanneld.service
-        After=flanneld.service
-        [Service]
-        EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
+    [Unit]
+    Requires=flanneld.service
+    After=flanneld.service
+    [Service]
+    EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
     core@core-02 ~ $ sudo mkdir /etc/kubernetes/cni
     core@core-02 ~ $ cd /etc/kubernetes/cni/
     core@core-02 /etc/kubernetes/cni $ sudo vi docker_opts_cni.env
     (Add the following lines)
-        DOCKER_OPT_BIP=""
-        DOCKER_OPT_IPMASQ=""
+    DOCKER_OPT_BIP=""
+    DOCKER_OPT_IPMASQ=""
     core@core-02 /etc/kubernetes/cni $ sudo mkdir net.d
     core@core-02 /etc/kubernetes/cni $ cd net.d/
     core@core-02 /etc/kubernetes/cni/net.d $ sudo vi 10-flannel.conf
     (Add the following lines)
-        {
-            "name": "podnet",
-            "type": "flannel",
-            "delegate": {
-                "isDefaultGateway": true
-            }
+    {
+        "name": "podnet",
+        "type": "flannel",
+        "delegate": {
+            "isDefaultGateway": true
         }
+    }
     core@core-02 ~ $ sudo systemctl daemon-reload
     core@core-02 ~ $ sudo systemctl stop docker
     core@core-02 ~ $ sudo systemctl stop docker-tcp.socket
@@ -854,28 +854,28 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     core@core-03 ~ $ cd /etc/systemd/system/docker.service.d
     core@core-03 /etc/systemd/system/docker.service.d $ sudo vi 40-flannel.conf
     (Add the following lines)
-        [Unit]
-        Requires=flanneld.service
-        After=flanneld.service
-        [Service]
-        EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
+    [Unit]
+    Requires=flanneld.service
+    After=flanneld.service
+    [Service]
+    EnvironmentFile=/etc/kubernetes/cni/docker_opts_cni.env
     core@core-03 ~ $ sudo mkdir /etc/kubernetes/cni
     core@core-03 ~ $ cd /etc/kubernetes/cni/
     core@core-03 /etc/kubernetes/cni $ sudo vi docker_opts_cni.env
     (Add the following lines)
-        DOCKER_OPT_BIP=""
-        DOCKER_OPT_IPMASQ=""
+    DOCKER_OPT_BIP=""
+    DOCKER_OPT_IPMASQ=""
     core@core-03 /etc/kubernetes/cni $ sudo mkdir net.d
     core@core-03 /etc/kubernetes/cni $ cd net.d/
     core@core-03 /etc/kubernetes/cni/net.d $ sudo vi 10-flannel.conf
     (Add the following lines)
-        {
-            "name": "podnet",
-            "type": "flannel",
-            "delegate": {
-                "isDefaultGateway": true
-            }
+    {
+        "name": "podnet",
+        "type": "flannel",
+        "delegate": {
+            "isDefaultGateway": true
         }
+    }
     core@core-03 ~ $ sudo systemctl daemon-reload
     core@core-03 ~ $ sudo systemctl stop docker
     core@core-03 ~ $ sudo systemctl stop docker-tcp.socket
