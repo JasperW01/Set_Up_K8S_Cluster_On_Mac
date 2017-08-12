@@ -165,7 +165,7 @@ In this step, we verify the newly-created CoreOS VMs by ssh onto each VMs.
 
 Now we have 4 CoreOS VMs created on Mac with Vagrant & VirtualBox. In this section, we will set up Kubernetes cluster on those VMs step by step, in which core-02 is the master node and core-03 & core-04 are the worker nodes. 
 
-The steps in this section are mainly sourced from https://coreos.com/kubernetes/docs/latest/getting-started.html with practical adjustment. Before start, we list the actual values of the following variables which will be used throughout this section. 
+The steps in this section are mainly sourced from https://coreos.com/kubernetes/docs/latest/getting-started.html with important corrections and adjustments. Before start, we list the actual values of the following variables which will be used throughout this section. 
 
       MASTER_HOST=172.17.8.102 - IP address of the K8S master node core-02 which can be accessed by worker nodes and kubectl clien on Mac.
       ETCD_ENDPOINTS=http://172.17.8.101:2379 - List of etcd machines, comma separated. As only core-01 runs etcd so only 1 URL
@@ -1276,7 +1276,7 @@ spec:
       dnsPolicy: Default # Don't use cluster DNS.
 ```
 
-Now verify all 4 containers of the kube-dns POD are started successfully and the deployment is in the desired state 
+Now verify all 4 containers of the kube-dns POD are started successfully and the deployment is in the desired state. Also they are assigned to a proper IP within the range of POD_NETWORK=10.2.0.0/16 which can be routed by Flanneld 
 
 ```
 MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods --all-namespaces
@@ -1287,8 +1287,70 @@ kube-system   kube-dns-v20-xnw3r                     3/3       Running   0      
 MacBook-Pro:coreos-vagrant jaswang$ kubectl get deployment --all-namespaces
 NAMESPACE     NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
 kube-system   kube-dns   1         1         1            1           40m
+MacBook-Pro:coreos-vagrant jaswang$ kubectl logs kube-dns-321336704-h1vq3 kubedns --namespace=kube-system
+I0811 15:24:01.942811       1 dns.go:42] version: v1.6.0-alpha.0.680+3872cb93abf948-dirty
+I0811 15:24:01.943334       1 server.go:107] Using https://10.3.0.1:443 for kubernetes master, kubernetes API: <nil>
+I0811 15:24:01.943671       1 server.go:68] Using configuration read from ConfigMap: kube-system:kube-dns
+I0811 15:24:01.943695       1 server.go:113] FLAG: --alsologtostderr="false"
+I0811 15:24:01.943702       1 server.go:113] FLAG: --config-map="kube-dns"
+I0811 15:24:01.943707       1 server.go:113] FLAG: --config-map-namespace="kube-system"
+I0811 15:24:01.943709       1 server.go:113] FLAG: --dns-bind-address="0.0.0.0"
+I0811 15:24:01.943712       1 server.go:113] FLAG: --dns-port="10053"
+I0811 15:24:01.943716       1 server.go:113] FLAG: --domain="cluster.local."
+I0811 15:24:01.943720       1 server.go:113] FLAG: --federations=""
+I0811 15:24:01.943724       1 server.go:113] FLAG: --healthz-port="8081"
+I0811 15:24:01.943726       1 server.go:113] FLAG: --kube-master-url=""
+I0811 15:24:01.943730       1 server.go:113] FLAG: --kubecfg-file=""
+I0811 15:24:01.943732       1 server.go:113] FLAG: --log-backtrace-at=":0"
+I0811 15:24:01.943735       1 server.go:113] FLAG: --log-dir=""
+I0811 15:24:01.943738       1 server.go:113] FLAG: --log-flush-frequency="5s"
+I0811 15:24:01.943751       1 server.go:113] FLAG: --logtostderr="true"
+I0811 15:24:01.943754       1 server.go:113] FLAG: --stderrthreshold="2"
+I0811 15:24:01.943756       1 server.go:113] FLAG: --v="0"
+I0811 15:24:01.943759       1 server.go:113] FLAG: --version="false"
+I0811 15:24:01.943763       1 server.go:113] FLAG: --vmodule=""
+I0811 15:24:01.943771       1 server.go:155] Starting SkyDNS server (0.0.0.0:10053)
+I0811 15:24:02.056156       1 server.go:165] Skydns metrics enabled (/metrics:10055)
+I0811 15:24:02.061828       1 logs.go:41] skydns: ready for queries on cluster.local. for tcp://0.0.0.0:10053 [rcache 0]
+I0811 15:24:02.061951       1 logs.go:41] skydns: ready for queries on cluster.local. for udp://0.0.0.0:10053 [rcache 0]
+E0811 15:24:32.057712       1 sync.go:105] Error getting ConfigMap kube-system:kube-dns err: Get https://10.3.0.1:443/api/v1/namespaces/kube-system/configmaps/kube-dns: dial tcp 10.3.0.1:443: i/o timeout
+E0811 15:24:32.057748       1 dns.go:190] Error getting initial ConfigMap: Get https://10.3.0.1:443/api/v1/namespaces/kube-system/configmaps/kube-dns: dial tcp 10.3.0.1:443: i/o timeout, starting with default values
+E0811 15:24:32.068880       1 reflector.go:199] pkg/dns/dns.go:145: Failed to list *api.Endpoints: Get https://10.3.0.1:443/api/v1/endpoints?resourceVersion=0: dial tcp 10.3.0.1:443: i/o timeout
+E0811 15:24:32.068968       1 reflector.go:199] pkg/dns/dns.go:148: Failed to list *api.Service: Get https://10.3.0.1:443/api/v1/services?resourceVersion=0: dial tcp 10.3.0.1:443: i/o timeout
+I0811 15:24:32.106557       1 server.go:126] Setting up Healthz Handler (/readiness)
+I0811 15:24:32.106661       1 server.go:131] Setting up cache handler (/cache)
+I0811 15:24:32.106678       1 server.go:120] Status HTTP port 8081
+MacBook-Pro:coreos-vagrant jaswang$ kubectl describe pod kube-dns-321336704-h1vq3 kubedns --namespace=kube-system
+Name:		kube-dns-321336704-h1vq3
+Namespace:	kube-system
+Node:		172.17.8.104/172.17.8.104
+Start Time:	Sat, 12 Aug 2017 00:35:59 +1000
+Labels:		k8s-app=kube-dns
+		pod-template-hash=321336704
+Annotations:	kubernetes.io/created-by={"kind":"SerializedReference","apiVersion":"v1","reference":{"kind":"ReplicaSet","namespace":"kube-system","name":"kube-dns-321336704","uid":"651ddba8-7ea2-11e7-a33c-080027b42...
+		scheduler.alpha.kubernetes.io/critical-pod=
+		scheduler.alpha.kubernetes.io/tolerations=[{"key":"CriticalAddonsOnly", "operator":"Exists"}]
+Status:		Running
+IP:		10.2.101.2   (Please note this POD IP must be in the same rage of the flannel & cni interfaces on that VM for routing to the POD)
+Controllers:	ReplicaSet/kube-dns-321336704
+...
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get ep kube-dns --namespace=kube-system
+
+NAME       ENDPOINTS                     AGE
+kube-dns   10.2.101.2:53,10.2.101.2:53   9h
 ```
-Now we test the Kubernets DNS is working, first we create the busybox POD which will be used in the DSN test. 
+In the check above, we found the DNS POD is assigned with the POD IP of 10.2.101.2, which is in the range of POD_NETWORK=10.2.0.0/16 and also consistent with the IPs of the flannel & cni interfaces on that VM as shown below. This must be true so that the traffic to that POD can be properly routed by flanneld. 
+```
+MacBook-Pro:coreos-vagrant jaswang$ vagrant ssh core-04
+core@core-04 ~ $ ifconfig
+cni0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+        inet 10.2.101.1  netmask 255.255.255.0  broadcast 0.0.0.0
+...
+flannel.1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+        inet 10.2.101.0  netmask 255.255.255.255  broadcast 0.0.0.0
+...
+```
+Now we test the Kubernets DNS, first we create the busybox POD which will be used in the DSN test. 
 ```
 MacBook-Pro:coreos-vagrant jaswang$ vi busybox.yaml
 (add the following lines into this new file)
@@ -1323,8 +1385,37 @@ So currently the cluster has two K8S Services as above. So their Service DNS nam
     
 Now we execute the DNS command to verify the kube-DNS servere
 ```
+MacBook-Pro:coreos-vagrant jaswang$ kubectl exec -ti busybox -- nslookup kubernetes.default
+Server:    10.3.0.10
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
 
-    
+Name:      kubernetes.default
+Address 1: 10.3.0.1 kubernetes.default.svc.cluster.local
+MacBook-Pro:coreos-vagrant jaswang$ kubectl exec -ti busybox -- nslookup 10.3.0.1
+Server:    10.3.0.10
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10.3.0.1
+Address 1: 10.3.0.1 kubernetes.default.svc.cluster.local
+MacBook-Pro:coreos-vagrant jaswang$ kubectl exec -ti busybox -- nslookup kube-dns.kube-system
+Server:    10.3.0.10
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      kube-dns.kube-system
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
+MacBook-Pro:coreos-vagrant jaswang$ kubectl exec -ti busybox -- nslookup 10.3.0.10
+Server:    10.3.0.10
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10.3.0.10
+Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
+```
+### Step B7 - Deploy Kube-DNS into K8S Cluster
+
+In this step, we will deploy Kubernetes DNS service into K8S cluster. The Kube-DNS add-on allows your services to have a DNS name in addition to an
+
+
+
 
 
 
