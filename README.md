@@ -1414,7 +1414,7 @@ Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
 
 In this step, we will deploy Kubernetes DNS service into K8S cluster. The Kube-DNS add-on allows your services to have a DNS name in addition to an
 
-![Alt text](/../Kubenetes_Dashboard.png?raw=true "Kubernetes Dashboard")
+![Kubernetes Dashboard](/Kubenetes_Dashboard.png?raw=true "Kubernetes Dashboard")
 
 
 
