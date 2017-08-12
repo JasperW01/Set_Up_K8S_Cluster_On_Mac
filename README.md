@@ -1412,9 +1412,23 @@ Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
 ```
 ### Step B7 - Deploy Kube-DNS into K8S Cluster
 
-In this step, we will deploy Kubernetes DNS service into K8S cluster. The Kube-DNS add-on allows your services to have a DNS name in addition to an
+In this step, we will deploy Kubernetes Dashboard add-on according to https://github.com/kubernetes/dashboard. Kubernetes Dashboard is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications running in the cluster and troubleshoot. 
 
+The deployment is very simple by kubectl as shown below
+
+```
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f https://git.io/kube-dashboard
+serviceaccount "kubernetes-dashboard" created
+clusterrolebinding "kubernetes-dashboard" created
+deployment "kubernetes-dashboard" created
+service "kubernetes-dashboard" created
+MacBook-Pro:coreos-vagrant jaswang$ kubectl proxy &
+Starting to serve on 127.0.0.1:8001
+```
+On your local MacPro web browser, open url of "http://localhost:8001/ui", you will be able to see the Kubernetes Dashboard as below
 ![Kubernetes Dashboard](/Kubenetes_Dashboard.png?raw=true "Kubernetes Dashboard")
+
+
 
 
 
