@@ -1410,7 +1410,7 @@ Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
 Name:      10.3.0.10
 Address 1: 10.3.0.10 kube-dns.kube-system.svc.cluster.local
 ```
-### Step B7 - Deploy Kube-DNS into K8S Cluster
+### Step B8 - Deploy Kubernetes Dashboard into K8S Cluster
 
 In this step, we will deploy Kubernetes Dashboard add-on according to https://github.com/kubernetes/dashboard. Kubernetes Dashboard is a general purpose, web-based UI for Kubernetes clusters. It allows users to manage applications running in the cluster and troubleshoot. 
 
@@ -1426,9 +1426,76 @@ MacBook-Pro:coreos-vagrant jaswang$ kubectl proxy &
 Starting to serve on 127.0.0.1:8001
 ```
 On your local MacPro web browser, open url of "http://localhost:8001/ui", you will be able to see the Kubernetes Dashboard as below
+
 ![Kubernetes Dashboard](/Kubenetes_Dashboard.png?raw=true "Kubernetes Dashboard")
 
+## Section C. Deploy Guestbook Example App into K8S Cluster
 
+Now in this section, we deploy the typical Kubernetes example application - Guestbook into K8S cluster. To make it work, the K8S cluster might be set up and verified as per the steps above. The steps in this section are sourced from  https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/README.md. 
+
+The example application consists of:
+
+    A web frontend
+    A redis master (for storage), and a replicated set of redis 'slaves'.
+
+The web frontend interacts with the redis master via javascript redis API calls.
+
+### Step C1 - Verify K8S Cluster
+
+First we verify again the K8S cluster status
+```
+MacBook-Pro:heapster jaswang$ kubectl cluster-info
+Kubernetes master is running at https://172.17.8.102
+KubeDNS is running at https://172.17.8.102/api/v1/proxy/namespaces/kube-system/services/kube-dns
+```
+### Step C2 - Start Up Redis Master
+
+To start the redis master, use the file redis-master-deployment.yaml, which describes a single pod running a redis key-value server in a container.
+
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-deployment.yaml
+
+Although we have a single instance of our redis master, we are using a Deployment to enforce that exactly one pod keeps running. E.g., if the node were to go down, the Deployment will ensure that the redis master gets restarted on a healthy node. (In our simplified example, this could result in data loss.)
+
+Also we define a Kubernetes Service for the redis master. This is done using the labels metadata that we defined in the redis-master pod above. As mentioned, we have only one redis master, but we nevertheless want to create a Service for it. Why? Because it gives us a deterministic way to route to the single master using an elastic IP. 
+
+The service yaml file is:
+
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-service.yaml
+
+According to the Kubernetes config best practices, we should create a Service before corresponding Deployments so that the scheduler can spread the pods comprising the Service. So we first create the Service by running:
+```
+MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ git clone https://github.com/kubernetes/kubernetes.git -b release-1.6
+MacBook-Pro:coreos-vagrant jaswang$ cd kubernetes/
+MacBook-Pro:kubernetes jaswang$ kubectl create -f examples/guestbook/redis-master-service.yaml
+service "redis-master" created
+MacBook-Pro:kubernetes jaswang$ kubectl get services
+NAME           CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
+kubernetes     10.3.0.1     <none>        443/TCP    6d
+redis-master   10.3.0.60    <none>        6379/TCP   32s
+```
+Then we create the redis master pod in your Kubernetes cluster by running:
+```
+MacBook-Pro:kubernetes jaswang$ kubectl create -f examples/guestbook/redis-master-deployment.yaml 
+deployment "redis-master" created
+MacBook-Pro:kubernetes jaswang$ kubectl get deployments
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+redis-master   1         1         1            1           8s
+MacBook-Pro:kubernetes jaswang$ kubectl get pods
+NAME                            READY     STATUS    RESTARTS   AGE
+redis-master-1068406935-gtkdr   1/1       Running   0          43s
+```
+
+### Step C3 - Start Up Redis Slave
+
+To start the redis master, use the file redis-master-deployment.yaml, which describes a single pod running a redis key-value server in a container.
+
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-deployment.yaml
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-service.yaml
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-deployment.yaml
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-service.yaml
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-deployment.yaml
+https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-service.yaml
 
 
 
