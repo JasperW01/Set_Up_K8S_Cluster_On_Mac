@@ -1,4 +1,4 @@
-# Install Kubernetes Cluster with 2 minions on MacPro with Vagrant & VirtualBox
+# Install Kubernetes Cluster with multiple minions on MacPro with Vagrant & VirtualBox
 
 In the article, we will describe how to set up a full Kubernetes cluster on a MacPro laptop. The Mac we are using is at version 10.12.5. 
 
@@ -882,7 +882,7 @@ In order for flannel to manage the pod network in the cluster, Docker needs to b
     core@core-03 ~ $ sudo systemctl start docker-tcp.socket
     core@core-03 ~ $ sudo systemctl start docker
 
-Now we create kubelet unit on workder node. The following kubelet service unit file uses the following environment variables: 
+Now we create kubelet unit on workder node. The following kubelet service unit file uses the following environment variables. Apart from that, it's crutical to set --network-plugin=cni otherwise the docker containers spined up by Kubelet will not use Flannel for routing and it will fail the whole K8S cluster. 
 
     ${MASTER_HOST} = 172.17.8.102
     ${ADVERTISE_IP} = 172.17.8.103
@@ -1545,6 +1545,13 @@ frontend-3823415956-rmxbf   1/1       Running   0          5m
 Then on the local MacPro laptop, open browser window of "http://<any_VM_IP>:30967", such as http://172.17.8.102:30967/, to access the Guestbook UI front as shown below: 
 
 ![Guestbook UI](/GuestBookUI.png?raw=true "Kubernetes App Example Guestbook")
+
+This proves that the Kubernetes Example App of GuestBook has now beeen deployed to the K8S cluster successfully. 
+
+By now we have successfully deployed a multi-nod eK8S cluster with Vagrant and Virtualbox and deployed an example App of GuestBook to prove the K8S cluster is ready to serve. 
+
+
+
 
 
 
