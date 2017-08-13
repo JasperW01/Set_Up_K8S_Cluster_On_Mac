@@ -1562,6 +1562,8 @@ Then on the local MacPro laptop, open browser window of "http://<any_VM_IP>:3096
 
 
 
+
+
  
  
 
