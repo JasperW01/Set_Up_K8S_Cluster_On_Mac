@@ -1544,7 +1544,7 @@ frontend-3823415956-rmxbf   1/1       Running   0          5m
 
 Then on the local MacPro laptop, open browser window of "http://<any_VM_IP>:30967", such as http://172.17.8.102:30967/, to access the Guestbook UI front as shown below: 
 
-![Guestbook UI](/Kubenetes_Dashboard.png?raw=true "Kubernetes App Example Guestbook")
+![Guestbook UI](/GuestBookUI.png?raw=true "Kubernetes App Example Guestbook")
 
 
 
