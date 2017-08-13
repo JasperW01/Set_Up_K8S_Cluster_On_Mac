@@ -1474,7 +1474,7 @@ NAME           CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
 kubernetes     10.3.0.1     <none>        443/TCP    6d
 redis-master   10.3.0.60    <none>        6379/TCP   32s
 ```
-Then we create the redis master pod in your Kubernetes cluster by running:
+Then we create the redis master pod in the Kubernetes cluster by running:
 ```
 MacBook-Pro:kubernetes jaswang$ kubectl create -f examples/guestbook/redis-master-deployment.yaml 
 deployment "redis-master" created
@@ -1488,14 +1488,68 @@ redis-master-1068406935-gtkdr   1/1       Running   0          43s
 
 ### Step C3 - Start Up Redis Slave
 
-To start the redis master, use the file redis-master-deployment.yaml, which describes a single pod running a redis key-value server in a container.
+Now that the redis master is running, we can start up its 'read slaves'.
 
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-deployment.yaml
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-service.yaml
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-deployment.yaml
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-master-service.yaml
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-deployment.yaml
-https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-service.yaml
+We'll define these as replicated pods as well, though this time — unlike for the redis master — we'll define the number of replicas to be 2. In Kubernetes, a Deployment is responsible for managing multiple instances of a replicated pod. The Deployment will automatically launch new pods if the number of replicas falls below the specified number. Its depoyment YAML file is https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-deployment.yaml.  
+
+Just like the master, we want to have a Service to proxy connections to the redis slaves. In this case, in addition to discovery, the slave Service will provide transparent load balancing to web app clients. Its service YAML file is https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/redis-slave-service.yaml
+
+Now we create the redis slave service & pods in the Kubernetes cluster by running:
+```
+MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f ./kubernetes/examples/guestbook/redis-slave-service.yaml 
+service "redis-slave" created
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f ./kubernetes/examples/guestbook/redis-slave-deployment.yaml 
+deployment "redis-slave" created
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get services -l "app=redis,tier=backend"
+NAME           CLUSTER-IP   EXTERNAL-IP   PORT(S)    AGE
+redis-master   10.3.0.60    <none>        6379/TCP   15h
+redis-slave    10.3.0.197   <none>        6379/TCP   19m
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get deployments -l "app=redis,tier=backend"
+NAME           DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+redis-master   1         1         1            1           15h
+redis-slave    2         2         2            2           1m
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods -l "app=redis,tier=backend"
+NAME                            READY     STATUS    RESTARTS   AGE
+redis-master-1068406935-gtkdr   1/1       Running   0          15h
+redis-slave-2005841000-kshxr    1/1       Running   0          1m
+redis-slave-2005841000-nv5p8    1/1       Running   0          1m
+```
+### Step C4 - Start up the guestbook frontend
+
+A frontend pod is a simple PHP server that is configured to talk to either the slave or master services, depending on whether the client request is a read or a write. It exposes a simple AJAX interface, and serves an Angular-based UX. Again we'll create a set of replicated frontend pods instantiated by a Deployment — this time, with three replicas. Its deployment YAML file is https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-deployment.yaml. 
+
+Similarly to the other pods, we now want to create a Service to group the frontend pods. Its service YAML file is https://github.com/kubernetes/kubernetes/blob/release-1.6/examples/guestbook/frontend-service.yaml. 
+
+```
+MacBook-Pro:~ jaswang$ cd /Users/jaswang/k8s/coreos-vagrant
+MacBook-Pro:coreos-vagrant jaswang$ vi kubernetes/examples/guestbook/frontend-service.yaml
+(Add the line of "type: NodePort")
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f kubernetes/examples/guestbook/frontend-service.yaml
+service "frontend" created
+MacBook-Pro:coreos-vagrant jaswang$ kubectl create -f kubernetes/examples/guestbook/frontend-deployment.yaml 
+deployment "frontend" created
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get services -l "app=guestbook"
+NAME       CLUSTER-IP   EXTERNAL-IP   PORT(S)        AGE
+frontend   10.3.0.139   <nodes>       80:30967/TCP   5m
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get deployments -l "app=guestbook"
+NAME       DESIRED   CURRENT   UP-TO-DATE   AVAILABLE   AGE
+frontend   3         3         3            3           5m
+MacBook-Pro:coreos-vagrant jaswang$ kubectl get pods -l "app=guestbook"
+NAME                        READY     STATUS    RESTARTS   AGE
+frontend-3823415956-1stps   1/1       Running   0          5m
+frontend-3823415956-b0km6   1/1       Running   0          5m
+frontend-3823415956-rmxbf   1/1       Running   0          5m
+```
+
+Then on the local MacPro laptop, open browser window of "http://<any_VM_IP>:30967", such as http://172.17.8.102:30967/, to access the Guestbook UI front as shown below: 
+
+![Guestbook UI](/Kubenetes_Dashboard.png?raw=true "Kubernetes App Example Guestbook")
+
+
+
+
+
 
 
 
