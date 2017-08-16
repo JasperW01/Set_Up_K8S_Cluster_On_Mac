@@ -1,4 +1,4 @@
-# Install Kubernetes Cluster with multiple minions on MacPro with Vagrant & VirtualBox
+# Install Kubernetes Cluster with multiple minions with Vagrant and VirtualBox
 
 In the article, we will describe how to set up a full Kubernetes cluster on a MacPro laptop. The Mac we are using is at version 10.12.5. 
 
